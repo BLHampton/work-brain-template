@@ -1,0 +1,17 @@
+{
+  "name": "work-brain",
+  "path": "/path/to/work-brain",
+  "remote": "github.com/<you>/work-brain",
+  "defaultBranch": "main",
+  "testPatterns": [
+    "\\.test\\.js$",
+    "/fixtures/"
+  ],
+  "singleTest": "node --test <path>",
+  "fullSuite": "node --test '.claude/hooks/*.test.js' 'ui/*.test.js'",
+  "branch": "feat/<short-slug>",
+  "prePr": [],
+  "ignoreDirty": ["task-log.md", "suggestion-box.md", "tasks/", "retros/", "ui/dispatch.jsonl"],
+  "notes": "Zero npm dependencies. Node 22: pass test files as globs in quotes, never a bare directory.",
+  "measured": "2026-10-16: full suite 30 tests, <1s"
+}

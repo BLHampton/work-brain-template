@@ -1,0 +1,1078 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>work-brain cards</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><circle cx='24' cy='24' r='20' fill='%23d97757'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,400;0,500;0,700;1,400&family=Yeseva+One&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.6.0/dist/mermaid.min.js"></script>
+<style>
+  /* A 1950s index-card file: cream stock, espresso ink, Claude orange for the red rule and the stamps, mustard + teal as the second colors. */
+  :root { --paper:#f1e6d2; --paper2:#e6d7bc; --card:#faf3e3; --ink:#2b1d15; --ink2:#5a4536; --muted:#8c7460; --line:#cdb998; --rule:#b9cbd6;
+    --orange:#d97757; --orange-deep:#b85c3b; --mustard:#d9a441; --teal:#4f8a7e; --stain:#6b4a2e;
+    --add:#3f5f1c; --addbg:#e4ead1; --del:#9e3a22; --delbg:#f4d8cc; --hunk:#3e7a70; --hunkbg:#d9e7e2;
+    --grain:multiply; }
+  @media (prefers-color-scheme: dark) { :root { --paper:#1b130f; --paper2:#241a15; --card:#2a1f19; --ink:#f1e7d5; --ink2:#cfbda4; --muted:#9a8470; --line:#4a382e; --rule:#3b2e28;
+    --stain:#c9a27a; --add:#b9d28a; --addbg:#26301b; --del:#f0a088; --delbg:#3a2018; --hunk:#8fc7bb; --hunkbg:#1d2f2b; --grain:soft-light; } }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; font:15px/1.5 'Jost', system-ui, sans-serif; color:var(--ink); background:var(--paper); display:grid; grid-template-rows:auto 1fr; grid-template-columns:372px 1fr; }
+  body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index:99; opacity:.22; mix-blend-mode:var(--grain);
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0'/></filter><rect width='220' height='220' filter='url(%23n)'/></svg>"); }
+  ::-webkit-scrollbar { width:10px; height:10px; } ::-webkit-scrollbar-thumb { background:var(--line); border-radius:999px; border:2px solid var(--paper); } ::-webkit-scrollbar-track { background:transparent; }
+  .typed { font-family:'Courier Prime', monospace; }
+  [hidden] { display:none !important; }
+
+  /* masthead: thin-thick rule like a 1950s letterhead, Nelson ball clock on the real time */
+  #mast { grid-column:1 / -1; display:flex; align-items:center; gap:22px; padding:16px 30px 14px; position:relative; }
+  #mast::after { content:""; position:absolute; left:30px; right:30px; bottom:0; height:6px; border-top:1px solid var(--ink); border-bottom:3px solid var(--ink); }
+  #mast .clock { width:58px; height:58px; color:var(--ink); flex:none; }
+  #mast .kicker { font:400 12px/1 'Courier Prime', monospace; letter-spacing:.3em; text-transform:uppercase; color:var(--ink2); margin-bottom:6px; }
+  #mast h1 { margin:0; font:400 44px/1 'Yeseva One', serif; letter-spacing:.01em; }
+  #mast h1 em { font-style:normal; color:var(--orange); }
+  /* stamp-listener pill sits left of the count and takes over its push to the right */
+  #mast #listen { margin-left:auto; font:400 13px/1 'Courier Prime', monospace; letter-spacing:.06em; padding:9px 12px; border-radius:3px; border:1.5px dashed var(--orange); color:var(--orange); }
+  #mast #listen.on { border-style:solid; border-color:var(--ink); color:var(--ink); }
+  #mast #listen + .count { margin-left:0; }
+  #wind { margin-left:14px; font:400 13px/1 'Courier Prime', monospace; letter-spacing:.06em; padding:9px 12px; border-radius:3px; border:1.5px solid var(--ink); background:none; color:var(--ink); cursor:pointer; }
+  #mast .count { margin-left:auto; font:400 13px/1 'Courier Prime', monospace; letter-spacing:.2em; text-transform:uppercase; color:var(--ink2); border:1.5px solid var(--ink); padding:9px 14px; border-radius:3px; transform:rotate(1.5deg); }
+
+  /* the drawer of cards */
+  #list { display:flex; flex-direction:column; overflow:hidden; min-height:0; padding:12px 0 0; } #cards { flex:1; overflow:auto; padding:0 22px 40px 26px; }
+  #list h2, #tree h2, .col h2 { display:flex; align-items:baseline; gap:10px; font:400 12px/1 'Courier Prime', monospace; letter-spacing:.3em; text-transform:uppercase; color:var(--ink2); margin:26px 2px 14px; }
+  #list h2:first-child, #tree h2:first-child, .col h2 { margin-top:0; } #list h2::after, #tree h2::after, .col h2::after { content:""; flex:1; border-bottom:1px dotted var(--ink2); transform:translateY(-3px); }
+  .item { position:relative; background-color:var(--card); border:1px solid var(--line); border-radius:2px; padding:10px 14px 12px; margin:0 6px 18px 0; cursor:pointer;
+    background-image:repeating-linear-gradient(to bottom, transparent 0 23px, var(--rule) 23px 24px); background-position:0 46px; background-origin:border-box;
+    box-shadow:0 1px 0 var(--line), 0 6px 14px -10px rgba(43,29,21,.45); transition:transform .15s; }
+  .item::before { content:""; position:absolute; left:0; right:0; top:40px; height:1.5px; background:var(--orange); opacity:.75; }
+  .item:hover { transform:translateY(-2px); } .item.sel { border-color:var(--ink); box-shadow:0 0 0 1px var(--ink), 0 10px 18px -12px rgba(43,29,21,.6); }
+  .item .task { font:400 11px/22px 'Courier Prime', monospace; color:var(--muted); margin:6px 0 0; letter-spacing:.02em; }
+  .item .text { white-space:pre-wrap; font:400 14px/24px 'Jost', sans-serif; }
+  .badge { display:inline-block; font:500 11px/1 'Jost'; letter-spacing:.2em; text-transform:uppercase; padding:4px 8px 3px; color:var(--card); border-radius:2px; }
+
+  /* the open card: divider tabs that join the card below */
+  #right { display:grid; grid-template-rows:auto auto 1fr auto; min-height:0; position:relative; }
+  #head { padding:22px 30px 6px; display:flex; align-items:center; gap:12px; } #hd { display:contents; }
+  body.wide { grid-template-columns:28px 1fr; grid-template-rows:auto 1fr; } body.wide #cards { display:none; } #head .task { font:400 12px 'Courier Prime', monospace; color:var(--muted); }
+  #tabs { display:flex; gap:3px; padding:10px 30px 0; align-items:flex-end; flex-wrap:wrap; }
+  #tabs button { position:relative; z-index:1; border:1px solid var(--ink); border-bottom:0; border-radius:8px 8px 0 0; background:var(--paper2); color:var(--ink2);
+    font:500 12.5px/1 'Jost'; letter-spacing:.16em; text-transform:uppercase; padding:9px 18px 10px; cursor:pointer; margin-bottom:0; }
+  #tabs button.on { background:var(--card); color:var(--ink); padding-bottom:12px; box-shadow:0 1px 0 var(--card); }
+  #pane { overflow:auto; min-height:0; margin:0 30px 0; padding:22px 26px 30px; background:var(--card); border:1px solid var(--ink); border-radius:0 8px 0 0; border-bottom:0; }
+  #pane svg, #fpane svg { max-width:100%; height:auto; }
+  .pills { display:flex; gap:14px; flex-wrap:wrap; margin:0 0 16px; }
+  .pills button, #rail { border:0; border-bottom:2px solid transparent; border-radius:0; background:none; color:var(--ink2); font:400 13px/1.2 'Courier Prime', monospace; padding:2px 0 4px; cursor:pointer; letter-spacing:.02em; }
+  .pills .other { color:var(--ink2); font:400 13px/1.2 'Courier Prime', monospace; padding:2px 0 4px; opacity:.7; }
+  .pills button.on { color:var(--ink); border-bottom-color:var(--orange); }
+  #rail { width:20px; padding:0; margin:0 0 8px 4px; text-align:center; font-size:18px; } /* in flow above the scrolling #cards so it never moves on toggle or scroll */
+  .raw { position:relative; padding:4px 0 14px 18px; margin-bottom:20px; white-space:pre-wrap; font:italic 400 15.5px/1.5 'Courier Prime', monospace; color:var(--ink2); border-bottom:1px solid var(--line); }
+  .raw::before { content:""; position:absolute; left:0; top:4px; bottom:14px; width:3px; background:var(--orange); }
+  .md { max-width:80ch; } .md h1, .md h2, .md h3 { font-family:'Yeseva One', serif; font-weight:400; letter-spacing:.005em; }
+  .md h1 { font-size:28px; } .md h2 { font-size:20px; margin-top:30px; padding-bottom:4px; border-bottom:1px solid var(--line); } .md h3 { font-size:16px; }
+  .md a { color:var(--orange-deep); } .md blockquote { margin:0; padding:4px 16px; border-left:3px solid var(--mustard); color:var(--ink2); }
+  .md pre, pre.diff, pre.stat { background:var(--paper); border:1px solid var(--line); padding:12px 14px; border-radius:3px; overflow:auto; font:13px/1.45 'Courier Prime', monospace; }
+  .md table { border-collapse:collapse; font-size:14px; } .md th { font:500 11px 'Jost'; letter-spacing:.16em; text-transform:uppercase; background:var(--paper2); }
+  .md td, .md th { border:1px solid var(--line); padding:6px 10px; text-align:left; } .md code { background:var(--paper2); padding:1px 5px; border-radius:2px; font:13px 'Courier Prime', monospace; }
+  pre.diff span { display:block; padding:0 6px; margin:0 -6px; } .add { color:var(--add); background:var(--addbg); } .del { color:var(--del); background:var(--delbg); }
+  .hunk { color:var(--hunk); background:var(--hunkbg); } .file { font-weight:700; margin-top:12px; color:var(--orange-deep); }
+  .shots { display:grid; grid-template-columns:1fr 1fr; gap:18px; } .shots h3 { font:400 18px 'Yeseva One', serif; margin:0 0 8px; }
+  #pane img { max-width:100%; border:1px solid var(--ink); border-radius:2px; }
+  .empty { color:var(--muted); font:italic 400 15px 'Courier Prime', monospace; padding:24px 0; }
+  /* card sections from question.md / packet.md (mockup variant A: stacked sections) */
+  .card-secs { margin-bottom:20px; padding-bottom:14px; border-bottom:1px solid var(--line); max-width:110ch; }
+  .qh { margin:0 0 14px; font:400 22px/1.3 'Yeseva One', serif; }
+  .sec { font:400 11px/1 'Courier Prime', monospace; letter-spacing:.3em; text-transform:uppercase; color:var(--ink2); margin:18px 0 8px; }
+  .opt { display:grid; grid-template-columns:28px 1fr auto; gap:10px; align-items:baseline; padding:8px 10px; border-bottom:1px dotted var(--line); }
+  .opt .k { font:700 15px 'Jost'; color:var(--ink2); } .opt .what { font-weight:500; } .opt .then { display:block; color:var(--ink2); font-size:14px; }
+  .opt.def { background:var(--paper); border-left:3px solid var(--orange); } .opt.def .k { color:var(--orange); }
+  .deftag { font:700 10.5px/1 'Jost'; letter-spacing:.2em; text-transform:uppercase; color:var(--orange); border:1.5px solid var(--orange); border-radius:3px; padding:3px 6px; }
+  .blocked { margin:14px 0 0; color:var(--ink2); } .blocked b { font:400 11px 'Courier Prime', monospace; letter-spacing:.2em; text-transform:uppercase; margin-right:8px; }
+  .look { margin:0; padding-left:20px; } .look li { margin:4px 0; }
+  .ship { position:relative; }
+  .ship pre { margin:0; background:var(--paper); border:1px solid var(--line); padding:12px 84px 12px 14px; border-radius:3px; white-space:pre-wrap; word-break:break-all; font:13px/1.45 'Courier Prime', monospace; }
+  .pills .copymd { margin-left:auto; }
+  .ship .copy:disabled { opacity:.4; cursor:default; }
+  /* the [PR] card from pr.md (mockup variant C): status line, the Needs you block, then history behind disclosure headings */
+  .standing { margin:0 0 10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; } .standing .meta, .standing a { font:400 12px 'Courier Prime', monospace; color:var(--muted); } .standing a, .fold a { color:var(--orange-deep); }
+  .chip { font:700 10.5px/1 'Jost'; letter-spacing:.2em; text-transform:uppercase; border:1.5px solid currentColor; border-radius:3px; padding:4px 7px 3px; }
+  .chip.t-needs { color:var(--orange); } .chip.t-wait { color:var(--teal); } .chip.t-done { color:var(--ink2); }
+  .verdict { margin:0 0 4px; font-weight:500; } .dq { margin:0 0 6px; } .took { margin:0; color:var(--ink2); }
+  .needs { margin:14px 0 6px; padding:2px 14px 12px; background:var(--paper); border-left:3px solid var(--orange); } .needs.wait { border-left-color:var(--teal); } .needs.done { border-left-color:var(--ink2); }
+  .needs .sec { margin-top:12px; color:var(--ink); } .needs .dq:not(:first-of-type) { margin-top:14px; }
+  label.opt { position:relative; cursor:pointer; border-left:3px solid transparent; } label.opt input { position:absolute; opacity:0; pointer-events:none; }
+  label.opt:has(input:checked) { background:var(--card); border-left-color:var(--orange); } label.opt:has(input:checked) .k { color:var(--orange); } label.opt:has(input:focus-visible) { outline:1.5px solid var(--ink2); }
+  .acts { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin:14px 0 4px 2px; } .hint { font:italic 400 12.5px 'Courier Prime', monospace; color:var(--muted); }
+  .acts select { font:500 13px/1 'Jost'; color:var(--ink); background:var(--card); border:1.5px solid var(--ink2); border-radius:3px; padding:7px 8px; }
+  .stampbtn { font:700 13px/1 'Jost'; letter-spacing:.22em; text-transform:uppercase; color:var(--orange); background:transparent; border:3px double var(--orange); border-radius:5px; padding:10px 14px; cursor:pointer; transform:rotate(2deg); }
+  .stampbtn.calm { color:var(--ink2); border-color:var(--ink2); } .stampbtn:disabled { opacity:.4; cursor:default; }
+  .fold { border-bottom:1px dotted var(--line); } .fold summary { cursor:pointer; padding:10px 0 9px; font:400 11px/1 'Courier Prime', monospace; letter-spacing:.3em; text-transform:uppercase; color:var(--ink2); } .fold .in { padding:0 0 12px; }
+  .tl { list-style:none; margin:0; padding:0; } .tl li { display:grid; grid-template-columns:92px 1fr; gap:10px; padding:4px 0; border-bottom:1px dotted var(--line); font-size:14px; color:var(--ink2); }
+  .tl .ts { font:400 12px/1.7 'Courier Prime', monospace; color:var(--muted); } .look li.did { text-decoration:line-through; color:var(--muted); }
+  .ship .copy { position:absolute; top:8px; right:8px; font:500 11px/1 'Jost'; letter-spacing:.2em; text-transform:uppercase; color:var(--ink2); background:var(--card); border:1.5px solid var(--ink2); border-radius:3px; padding:6px 9px; cursor:pointer; }
+
+  .stamped { position:absolute; left:50%; top:42%; z-index:5; pointer-events:none; font:700 56px/1 'Jost'; letter-spacing:.2em; text-transform:uppercase; color:var(--orange);
+    border:6px double var(--orange); border-radius:10px; padding:12px 26px 10px; mix-blend-mode:var(--grain); animation:stamp .6s cubic-bezier(.2,.9,.3,1.2) forwards; }
+  @keyframes stamp { from { opacity:0; transform:translate(-50%,-50%) rotate(-12deg) scale(1.9); } 55% { opacity:.95; } to { opacity:.92; transform:translate(-50%,-50%) rotate(-12deg) scale(1); } }
+  /* card actions: Park / Unpark / Drop on the open card and on every pipeline row */
+  .actions { margin-left:auto; display:flex; gap:8px; align-items:center; }
+  .act { font:500 11px/1 'Jost'; letter-spacing:.16em; text-transform:uppercase; color:var(--ink2); background:transparent; border:1.5px solid var(--ink2); border-radius:3px; padding:6px 10px; cursor:pointer; }
+  .act.drop { color:var(--del); border-color:var(--del); } .act:disabled { opacity:.4; cursor:default; }
+  /* pipeline: one index card per open status.json, the lane's stages as a row of lights */
+  #views { margin:0 0 0 18px; align-self:flex-end; } #views button { font-size:14px; letter-spacing:.1em; text-transform:uppercase; }
+  #pipeline { grid-column:1 / -1; overflow:auto; padding:24px 30px 40px; } #pipeline h2 { display:flex; align-items:baseline; gap:10px; font:400 12px/1 'Courier Prime', monospace; letter-spacing:.3em; text-transform:uppercase; color:var(--ink2); margin:30px 2px 14px; }
+  #pipeline h2:first-child { margin-top:0; } #pipeline h2::after { content:""; flex:1; border-bottom:1px dotted var(--ink2); transform:translateY(-3px); }
+  .prow { cursor:default; margin-right:0; max-width:980px; } .phead { display:flex; align-items:center; gap:10px; flex-wrap:wrap; } .phead .card { font:400 20px/1.2 'Yeseva One', serif; }
+  .badge.agents { background:var(--ink2); } .badge.stage { background:var(--muted); }
+  .lights { display:flex; flex-wrap:wrap; gap:6px 18px; margin-top:10px; font:400 12px/1.2 'Courier Prime', monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  .light { display:inline-flex; align-items:center; gap:7px; } .light i { width:12px; height:12px; border-radius:50%; border:1.5px solid var(--line); background:transparent; flex:none; }
+  .light.passed { color:var(--ink2); } .light.passed i { background:var(--teal); border-color:var(--teal); }
+  .light.current { color:var(--ink); } .light.current i { background:var(--orange); border-color:var(--orange); animation:pulse 1.2s ease-in-out infinite; }
+  .light.awaiting { color:var(--ink); } .light.awaiting i { background:var(--mustard); border-color:var(--mustard); box-shadow:0 0 0 3px rgba(217,164,65,.35); }
+  .light.blocked { color:var(--del); } .light.blocked i { background:var(--del); border-color:var(--del); }
+  .light em { font-style:italic; text-transform:none; letter-spacing:0; }
+  @keyframes pulse { 0%, 100% { box-shadow:0 0 0 0 rgba(217,119,87,.6); } 50% { box-shadow:0 0 0 6px rgba(217,119,87,0); } }
+  #nblock { margin-left:6px; font:700 11px/1 'Jost'; color:var(--card); background:var(--orange); border-radius:999px; padding:2px 6px; vertical-align:middle; }
+  /* stats: one card per task folder with dispatches, agent time vs dispatcher time as a two-segment bar, slowest first */
+  #stats { grid-column:1 / -1; overflow:auto; padding:24px 30px 40px; }
+  #stats .stools { display:flex; align-items:center; gap:18px; flex-wrap:wrap; max-width:980px; margin:0 2px 18px; font:400 12px/1.4 'Courier Prime', monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--ink2); }
+  #stats .stools label { display:inline-flex; align-items:center; gap:6px; cursor:pointer; } #stats .stools .hint { margin-left:auto; text-transform:none; letter-spacing:0; color:var(--muted); font-style:italic; }
+  .srow { cursor:pointer; margin-right:0; max-width:980px; } .srow .shead { display:flex; align-items:center; gap:10px; flex-wrap:wrap; } .srow .shead .card { font:400 20px/1.2 'Yeseva One', serif; }
+  .srow .total { font:700 18px/1 'Jost'; color:var(--ink); margin-left:auto; } .srow .meta { font:400 12px/1.2 'Courier Prime', monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  .srow .bar { display:flex; height:10px; margin-top:12px; border-radius:2px; overflow:hidden; background:var(--paper2); }
+  .srow .bar i { display:block; height:100%; } .srow .bar i.agent { background:var(--teal); } .srow .bar i.disp { background:var(--mustard); }
+  .srow .split { display:flex; flex-wrap:wrap; gap:6px 18px; margin-top:8px; font:400 12px/1.2 'Courier Prime', monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  .srow .split b { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; } .srow .split .agent b { background:var(--teal); } .srow .split .disp b { background:var(--mustard); }
+  .srow .detail { display:grid; grid-template-columns:1fr 1fr; gap:6px 30px; margin-top:14px; padding-top:12px; border-top:1px dotted var(--line); font:400 13.5px/1.7 'Courier Prime', monospace; color:var(--ink2); }
+  .srow .detail h3 { grid-column:1 / -1; margin:0; font:400 12px/1 'Courier Prime', monospace; letter-spacing:.3em; text-transform:uppercase; color:var(--muted); }
+  .srow .detail h3:not(:first-child) { margin-top:8px; } .srow .detail .line { display:flex; justify-content:space-between; gap:12px; } .srow .detail .line span:last-child { color:var(--ink); }
+  .srow .inferred { color:var(--muted); font-style:italic; }
+  @media (max-width: 700px) { .srow .detail { grid-template-columns:1fr; } }
+  /* board: one block per section (Our cards, Reviews & research), one column per status that has cards, scrolling sideways when narrow */
+  #board { grid-column:1 / -1; overflow:auto; padding:24px 30px 40px; }
+  #board h2.section { font:400 22px/1.2 'Yeseva One', serif; color:var(--ink); margin:0 0 14px; } #board .section + .cols { margin-bottom:34px; }
+  #board .cols { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(220px, 1fr); gap:18px; align-content:start; }
+  a.item { display:block; color:inherit; text-decoration:none; } div.card { cursor:default; }
+  .badge.lane { background:var(--teal); } .badge.open { background:var(--orange); }
+  /* files: the drawer tree on the left, the chosen card open on the right, read-only */
+  #files { grid-column:1 / -1; display:grid; grid-template-columns:320px 1fr; min-height:0; }
+  #tree { overflow:auto; padding:24px 22px 40px 30px; } #tree details { margin:0 0 8px; }
+  #tree summary, #tree a { font:400 13.5px/1.7 'Courier Prime', monospace; color:var(--ink2); cursor:pointer; }
+  #tree a { display:block; text-decoration:none; padding-left:18px; } #tree a.on { color:var(--orange-deep); font-weight:700; }
+  #fpane { overflow:auto; min-height:0; margin:0 30px 24px 0; padding:22px 26px 30px; background:var(--card); border:1px solid var(--ink); border-radius:8px; }
+  @media (max-width: 900px) { body { grid-template-columns:1fr; grid-template-rows:auto auto 1fr; } #list { max-height:40vh; } }
+  @media (max-width: 960px) { #mast { flex-wrap:wrap; } #mast .count, #mast #listen { margin-left:0; } #files { grid-template-columns:1fr; grid-template-rows:auto 1fr; } #tree { max-height:40vh; } #fpane { margin:0 30px 24px; } }
+  /* the Cards tab: one card per task, what it needs from the manager first, everything else quiet */
+  #right { grid-template-rows:auto auto 1fr; }
+  #pane { border-bottom:1px solid var(--ink); border-radius:0 8px 8px 8px; margin-bottom:24px; }
+  /* list cards: blank head above the red rule, ruled lines below it */
+  #cards .item { background-image:linear-gradient(to bottom, var(--card) 0 41px, transparent 41px), repeating-linear-gradient(to bottom, transparent 0 23px, var(--rule) 23px 24px); background-position:0 0, 0 46px; background-repeat:no-repeat, repeat; }
+  .item .ltitle { font:500 15px/24px 'Jost', sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:4px; }
+  /* the card's type (PR review / Feature / Research): a tag before the title and a matching left edge */
+  .ty { display:inline-block; font:700 10.5px/1 'Jost'; letter-spacing:.16em; text-transform:uppercase; padding:4px 7px 3px; border-radius:2px; margin-right:8px; vertical-align:2px; white-space:nowrap; color:#fff8ea; background:#9c4524; }
+  .ty-pr { background:#255a50; } .ty-research { background:#4a3f8f; }
+  .item.ty-feature { border-left:5px solid #9c4524; } .item.ty-pr { border-left:5px solid #255a50; } .item.ty-research { border-left:5px solid #4a3f8f; }
+  /* who is on the card and which gate it is at */
+  .marks { display:flex; gap:6px 12px; flex-wrap:wrap; align-items:center; font:500 11.5px/22px 'Jost', sans-serif; letter-spacing:.04em; color:var(--ink2); }
+  .marks .mk { white-space:nowrap; } .marks .mk::before { content:""; display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; border:1.5px solid currentColor; vertical-align:0; }
+  .marks .mk.on { color:var(--ink); } .marks .mk.on::before { background:var(--teal); border-color:var(--teal); }
+  .marks .mk.stuck { color:var(--orange-deep); font-weight:700; } .marks .mk.stuck::before { background:var(--orange); border-color:var(--orange); }
+  .marks .mk.gate::before { border-radius:1px; transform:rotate(45deg); } .marks .mk.gate.at { color:var(--orange-deep); font-weight:700; } .marks .mk.gate.at::before { background:var(--orange); border-color:var(--orange); }
+  @media (prefers-color-scheme: dark) { .marks .mk.stuck, .marks .mk.gate.at { color:var(--orange); } }
+  .cardv .marks { margin:0 0 10px; font-size:13px; }
+  #new { margin:0 6px 16px 0; } body.wide #new { display:none; }
+  #new > button { width:100%; border:1px dashed var(--ink2); border-radius:2px; background:none; color:var(--ink2); font:500 12.5px/1 'Jost'; letter-spacing:.16em; text-transform:uppercase; padding:10px; cursor:pointer; }
+  #new form { display:grid; gap:8px; padding:12px; background:var(--card); border:1px solid var(--ink); border-radius:2px; }
+  #new fieldset { border:0; padding:0; margin:0; display:flex; gap:6px; flex-wrap:wrap; } #new legend { font:400 11px/1 'Courier Prime', monospace; color:var(--ink2); padding:0 0 6px; }
+  #new label.pick { cursor:pointer; } #new label.pick input { position:absolute; opacity:0; } #new label.pick .ty { margin:0; opacity:.6; }
+  #new label.pick input:checked + .ty { opacity:1; outline:2px solid var(--ink); outline-offset:1px; } #new label.pick input:focus-visible + .ty { outline:2px solid var(--orange); outline-offset:2px; }
+  #new input[type=text], #new textarea { width:100%; box-sizing:border-box; font:400 14px/1.4 'Jost', sans-serif; padding:6px 8px; background:var(--paper); color:var(--ink); border:1px solid var(--line); border-radius:2px; }
+  #new .row { display:flex; gap:8px; align-items:center; } #new .row button { font:500 12px/1 'Jost'; letter-spacing:.14em; text-transform:uppercase; padding:8px 12px; border:1px solid var(--ink); border-radius:2px; background:var(--ink); color:var(--card); cursor:pointer; }
+  #new .row button[type=button] { background:none; color:var(--ink2); border-color:var(--line); } #new .err { color:var(--del); font:400 13px/1.3 'Jost'; }
+  .item .lsub { font:400 14px/24px 'Jost', sans-serif; color:var(--ink2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:6px; }
+  .item .lsub.need { color:var(--orange-deep); font-weight:500; }
+  .item .lmeta { font:400 11px/24px 'Courier Prime', monospace; color:var(--muted); letter-spacing:.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .item.st-closed, .item.st-parked { opacity:.72; }
+  .closedlink { border:0; background:none; padding:4px 2px; margin:6px 0 0; cursor:pointer; font:400 12px/1 'Courier Prime', monospace; letter-spacing:.3em; text-transform:uppercase; color:var(--ink2); }
+  .cardv { max-width:86ch; }
+  .cardv .ch { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin:0 0 6px; }
+  .cardv .ctitle { margin:0; font:400 21px/1.25 'Yeseva One', serif; flex:1; min-width:16ch; overflow-wrap:anywhere; }
+  .cardv .need { font:700 12px/1 'Jost'; letter-spacing:.14em; text-transform:uppercase; color:var(--orange); white-space:nowrap; }
+  .cardv .line { margin:4px 0; color:var(--ink2); overflow-wrap:anywhere; } .cardv .lbl { color:var(--muted); }
+  .qs { list-style:none; margin:16px 0 8px; padding:0; }
+  .q { padding:12px 14px 12px; margin:0 0 10px; background:var(--paper); border-left:3px solid var(--orange); }
+  .q .qt { font:500 17.5px/1.4 'Jost', sans-serif; color:var(--ink); overflow-wrap:anywhere; }
+  .q .qa { display:flex; align-items:center; gap:10px 14px; flex-wrap:wrap; margin-top:8px; }
+  .q .sug { flex:1 1 22ch; color:var(--ink2); overflow-wrap:anywhere; }
+  .q .qbtns { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .q .stampbtn { transform:none; padding:8px 12px; }
+  .q .stampbtn:not(:disabled):hover { background:var(--orange); color:var(--card); }
+  .link { border:0; background:none; padding:2px 0; cursor:pointer; font:400 13px/1.2 'Courier Prime', monospace; color:var(--orange-deep); text-decoration:none; }
+  a.link:hover, button.link:hover { text-decoration:underline; }
+  .whyp { margin:8px 0 0; color:var(--ink2); font-size:14.5px; overflow-wrap:anywhere; }
+  .answerrow { display:flex; gap:10px; align-items:flex-end; margin-top:10px; }
+  .answerrow textarea { flex:1; min-height:44px; resize:vertical; font:15px/1.45 'Jost', sans-serif; color:var(--ink); background:var(--card); border:1px solid var(--line); border-radius:3px; padding:6px 8px; }
+  .answerrow textarea:focus { outline:none; border-color:var(--orange); }
+  .packet { margin:10px 0 2px; padding:8px 0 0; border-top:1px dotted var(--line); } .packet h4 { margin:0 0 4px; font:500 15px/1.35 'Jost'; overflow-wrap:anywhere; }
+  .packet .sec { margin:10px 0 6px; } .packet .warn { color:var(--del); font-size:14px; }
+  .queued { margin:0 0 8px 2px; color:var(--muted); font:italic 400 13px 'Courier Prime', monospace; }
+  .dech { font:400 11px/1 'Courier Prime', monospace; letter-spacing:.3em; text-transform:uppercase; color:var(--ink2); margin:20px 0 6px; }
+  .decided { list-style:none; margin:0; padding:0; } .decided li { display:grid; grid-template-columns:16px 1fr auto auto; gap:4px 10px; align-items:baseline; padding:4px 0; border-bottom:1px dotted var(--line); font-size:14.5px; color:var(--ink2); }
+  .decided .mk { color:var(--teal); font-weight:700; } .decided li.as .mk { color:var(--mustard); } .decided .dt { overflow-wrap:anywhere; } .decided .dt b { font-weight:500; color:var(--ink); }
+  .decided .date { font:400 12px 'Courier Prime', monospace; color:var(--muted); white-space:nowrap; } .decided .answerrow { grid-column:2 / -1; margin-top:4px; }
+  .decided .act { padding:4px 8px; }
+  .earlier summary { cursor:pointer; padding:6px 0; font:400 12px 'Courier Prime', monospace; color:var(--muted); }
+  .cardv .prcard { margin:14px 0 4px; padding:0; border:0; max-width:none; }
+  .prtray { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:10px 0 0; } .prtray input { flex:1 1 20ch; font:14px 'Jost'; color:var(--ink); background:transparent; border:0; border-bottom:1px solid var(--line); padding:5px 2px; }
+  .cacts { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:22px 0 0; padding-top:12px; border-top:1px solid var(--line); } .cacts .sp { flex:1; }
+  .cmsg { color:var(--del); font:13px 'Courier Prime', monospace; margin-top:8px; } .cmsg:empty { display:none; }
+  .readres { font:500 14px 'Jost'; }
+  /* chat with the card's lead: the thread, one box, the lead's state */
+  .chat { margin:20px 0 0; } .thread { list-style:none; margin:0; padding:0; }
+  .thread li { padding:5px 0; border-bottom:1px dotted var(--line); font-size:14.5px; color:var(--ink2); overflow-wrap:anywhere; }
+  .thread .who { font-weight:500; color:var(--ink); margin-right:8px; } .thread li.lead .who { color:var(--teal); }
+  .thread .date { font:400 12px 'Courier Prime', monospace; color:var(--muted); margin-right:8px; }
+  .leadrow { display:flex; align-items:center; gap:8px 14px; flex-wrap:wrap; margin-top:8px; font:400 13px 'Courier Prime', monospace; color:var(--muted); }
+  .leadrow .failed { color:var(--del); overflow-wrap:anywhere; }
+</style>
+</head>
+<body>
+<header id="mast">
+  <svg id="clock" class="clock" viewBox="0 0 60 60" aria-hidden="true"><g id="spokes" stroke="currentColor" stroke-width="1.4"></g><line id="hh" x1="30" y1="30" x2="30" y2="18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><line id="mh" x1="30" y1="30" x2="30" y2="11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="30" cy="30" r="2.8" fill="#d97757"/></svg>
+  <div><div class="kicker">work · brain · card file</div><h1>Ca<em>rds</em></h1></div>
+  <div id="views" class="pills"><button class="on" data-view="cards">Cards<b id="nblock" hidden></b></button><button data-view="pipeline">Pipeline</button><button data-view="stats">Stats</button><button data-view="board">Board</button><button data-view="files">Files</button></div>
+  <div id="listen" role="status" hidden></div>
+  <div id="count" class="count"></div>
+  <button id="wind" title="End of day: close every lead and tell the dispatcher to stop its helpers">Wind down</button>
+</header>
+<nav id="list"><button id="rail" aria-label="Toggle card list" aria-pressed="false" title="Collapse the card list so the pane spans the window">‹</button><div id="new"><button id="newbtn" aria-expanded="false">+ New card</button>
+  <form id="newform" hidden>
+    <fieldset><legend>What kind of work?</legend>
+      <label class="pick"><input type="radio" name="type" value="feature" checked><span class="ty ty-feature">Feature</span></label>
+      <label class="pick"><input type="radio" name="type" value="review"><span class="ty ty-pr">PR review</span></label>
+      <label class="pick"><input type="radio" name="type" value="research"><span class="ty ty-research">Research</span></label>
+    </fieldset>
+    <input type="text" name="title" maxlength="80" required aria-label="Title" placeholder="Title, e.g. TICKET-123 retry button">
+    <textarea name="details" rows="3" maxlength="2000" aria-label="Details" placeholder="Details, a link, what done looks like (optional)"></textarea>
+    <div class="row"><button type="submit">Raise it</button><button type="button" id="newcancel">Cancel</button><span class="err" role="alert"></span></div>
+  </form></div><div id="cards"></div></nav>
+<section id="pipeline" hidden></section>
+<section id="stats" hidden></section>
+<section id="board" hidden></section>
+<section id="files" hidden><nav id="tree"></nav><div id="fpane"></div></section>
+<main id="right">
+  <div id="head"><div id="hd"><div class="empty">Loading…</div></div></div>
+  <div id="tabs"></div>
+  <div id="pane"></div>
+</main>
+<script>
+const TABS = [['card', 'Card'], ['docs', 'Brief / Plan'], ['diff', 'Diff'], ['diagram', 'Diagram'], ['shots', 'Before / After']];
+// list order, from routes.cards (STATE_ORDER); closed sits behind its own link
+const GROUPS = [['needs you', 'Needs you'], ['working', 'Working'], ['waiting on someone else', 'Waiting on someone else'], ['done', 'Done, close when ready'], ['parked', 'Parked']];
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Task files can carry text from outside (a PR title, a colleague's comment): raw HTML is shown as text and only
+// http(s) links stay links.
+marked.use({ renderer: {
+  html: (token) => esc(token.text),
+  link(token) { return /^https?:\/\//i.test(token.href) ? false : this.parser.parseInline(token.tokens); },
+} });
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+const mm = dark ? { bg:'#2b1f19', fg:'#f1e7d5', line:'#cfbda4', soft:'#261a15', paper:'#1d1410', rule:'#43322a' } : { bg:'#fbf5e8', fg:'#2b1d15', line:'#5a4536', soft:'#e8dac2', paper:'#f3e9d7', rule:'#d6c3a6' };
+mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: { fontFamily: 'Jost, sans-serif', primaryColor: mm.bg, primaryTextColor: mm.fg,
+  primaryBorderColor: mm.fg, lineColor: mm.line, secondaryColor: mm.soft, tertiaryColor: mm.paper, clusterBkg: mm.soft, clusterBorder: mm.rule, edgeLabelBackground: mm.paper } });
+
+const fromHash = TABS.find(([k]) => k === location.hash.slice(1));
+// drafts: half-typed answers by `<folder>:<id>`; why / typing: open "why" paragraphs and answer boxes by the same key
+const state = { rows: [], sel: null, view: 'cards', showClosed: false, drafts: {}, why: new Set(), typing: new Set(), earlier: new Set(), prEl: null, chat: {}, chatPoll: {},
+  pipeline: { rows: [], parked: [] }, stats: { cards: [], recent: false, open: {} }, tab: fromHash ? fromHash[0] : 'card', doc: null, task: null, diff: {} };
+
+function copyFrom(b, pre) {
+  const select = () => { const r = document.createRange(); r.selectNodeContents(pre); getSelection().removeAllRanges(); getSelection().addRange(r); b.textContent = 'Selected'; };
+  if (!navigator.clipboard) return select(); // http on a non-localhost host: no clipboard API
+  navigator.clipboard.writeText(pre.textContent).then(() => { b.textContent = 'Copied'; }, select);
+}
+// Copy a markdown file's source, as written, from the Docs and Files views.
+const copyMd = (b, text) => {
+  if (!navigator.clipboard) { b.textContent = 'No clipboard here'; return; }
+  navigator.clipboard.writeText(text).then(() => { b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy markdown'; }, 1500); }, () => { b.textContent = 'Copy failed'; });
+};
+function wireCopy(pane) {
+  for (const b of pane.querySelectorAll('.ship .copy')) b.onclick = () => copyFrom(b, b.nextElementSibling);
+}
+
+// The [PR] card (mockup variant C), laid out from `row.pr` (pr.md as parsed by routes.cards). Plain DOM calls:
+// everything that comes from pr.md, the draft comment or the card lands as textContent, never as HTML.
+const el = (tag, cls, text, kids = []) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; n.append(...kids); return n; };
+const REVIEWS = [['approve', 'Approve'], ['request-changes', 'Request changes'], ['comment', 'Comment']];
+const isWeb = (url) => /^https?:\/\//.test(url || '');
+const webLink = (url, text) => Object.assign(el('a', '', text), { href: url, target: '_blank', rel: 'noopener' });
+// The one next action for where the PR stands: post (GitHub) / refused (run the command by hand) / requested (Post stamped,
+// not answered yet) / posted (pasted by hand) / done / rereview / none (a review is running).
+function prAction(item) {
+  const { stands } = item.pr;
+  if (stands === 'merged' || stands === 'closed') return 'done';
+  if (item.post !== 'none') return !item.postable ? 'posted' : { refused: 'refused', requested: 'requested' }[item.post] || 'post';
+  return stands === 'reviewing' || stands === 're-reviewing' ? 'none' : 'rereview';
+}
+// The stamps a PR's card offers under its Needs you block, which does not already offer them.
+const prTray = (item) => (!item.pr ? ['Done'] : { done: ['Changes'], post: ['Changes', 'Re-review', 'Done'], refused: ['Changes', 'Re-review', 'Done'], posted: ['Changes', 'Re-review', 'Done'] }[prAction(item)] || ['Changes', 'Done']);
+const fold = (title, body) => el('details', 'fold', null, [el('summary', '', title), el('div', 'in', null, [body])]);
+
+function prCard(item) {
+  const pr = item.pr;
+  if (!pr) return el('div', 'card-secs prcard', null, [el('div', 'raw', item.title), el('div', 'empty', 'pr.md missing')]);
+  const action = prAction(item);
+  const posting = action === 'post' || action === 'posted' || action === 'refused';
+  const stampBtn = (label, body, calm) => Object.assign(el('button', `stampbtn${calm ? ' calm' : ''}`, label), { onclick: () => prStamp(body(), label) });
+
+  const standing = el('p', 'standing', null, [
+    el('span', `chip ${action === 'done' ? 't-done' : posting ? 't-needs' : 't-wait'}`, pr.stands || 'unknown'),
+    el('span', 'meta', `round ${pr.round ?? '?'}`),
+    ...(isWeb(pr.url) ? [webLink(pr.url, 'open the PR ↗')] : []),
+  ]);
+
+  // the draft comment: raw markdown fetched as text through the task-file route, shown in a <pre>
+  const pre = el('pre', '', pr.comment.path ? 'Loading…' : '');
+  const copy = Object.assign(el('button', 'copy', 'Copy'), { disabled: true });
+  const handCopy = Object.assign(el('button', 'act', 'Copy comment'), { disabled: true, onclick: () => copyFrom(handCopy, pre) });
+  const rel = (pr.comment.path || '').replace(`tasks/${item.folder}/`, '');
+  if (rel) fetch(`/api/task-file?folder=${encodeURIComponent(item.folder)}&path=${encodeURIComponent(rel)}`)
+    .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
+    .then((text) => { pre.textContent = text; copy.disabled = handCopy.disabled = false; }, (e) => { pre.textContent = `Could not load ${rel}: ${e.message}`; });
+
+  const needs = el('div', `needs${action === 'done' ? ' done' : posting ? '' : ' wait'}`, null, [el('div', 'sec', posting || action === 'done' ? 'Needs you' : 'Needs you · nothing')]);
+  if (posting) {
+    pr.decisions.forEach((d, n) => {
+      needs.append(el('p', 'dq', d.question));
+      for (const o of d.options) {
+        const radio = Object.assign(el('input'), { type: 'radio', name: `prd${n}`, value: o.letter, checked: o.letter === (d.chosen || d.default) });
+        needs.append(el('label', 'opt', null, [radio, el('span', 'k', o.letter), el('span', '', null, [el('span', 'what', o.text)]), o.letter === d.default ? el('span', 'deftag', 'default') : el('span')]));
+      }
+    });
+    const picked = () => Object.fromEntries(pr.decisions.map((d, n) => [d.question, needs.querySelector(`input[name="prd${n}"]:checked`)?.value]).filter(([, letter]) => letter));
+    if (action === 'post') {
+      const as = el('select', '', null, REVIEWS.map(([value, label]) => Object.assign(el('option', '', label), { value })));
+      const said = (pr.verdict || '').toLowerCase();
+      as.value = said.startsWith('approve') ? 'approve' : said.startsWith('request changes') ? 'request-changes' : 'comment';
+      as.setAttribute('aria-label', 'Post as');
+      // the draft was written for the defaults: another option is a rewrite, not a post
+      const hint = el('span', 'hint');
+      const say = () => { const p = picked(); hint.textContent = pr.decisions.some((d) => p[d.question] && p[d.question] !== d.default) ? 'picking a non-default option sends the comment back for a rewrite first' : 'posts the draft comment under your sign-in'; };
+      needs.addEventListener('change', say);
+      needs.append(el('div', 'acts', null, [stampBtn('Post', () => ({ answer: 'Post', review: as.value, decisions: picked() })), as, hint]));
+      say();
+    } else if (action === 'refused') {
+      // the session could not post: the newest `! ` timeline entry is the line to run by hand
+      needs.append(el('p', 'took', 'The post was refused in the dispatcher session. Run this there yourself:'), el('div', 'ship', null, [el('button', 'copy', 'Copy'), el('pre', '', pr.timeline.find((t) => t.text.startsWith('! ')).text)]));
+    } else {
+      needs.append(el('div', 'acts', null, [handCopy, stampBtn('Posted', () => ({ answer: 'Posted', decisions: picked() })), el('span', 'hint', 'not a GitHub PR: paste the comment there, then stamp')]));
+    }
+  } else if (action === 'done') {
+    needs.append(el('p', 'took', `${pr.stands === 'merged' ? 'Merged' : 'Closed'}. One last stamp clears the card.`), el('div', 'acts', null, [stampBtn('Done', () => ({ answer: 'Done' }))]));
+  } else if (action === 'rereview') {
+    const queued = pr.stands === 're-review queued';
+    needs.append(el('p', 'took', queued ? 'Nothing right now. The next round starts by itself when a worktree is free.' : 'Nothing right now.'),
+      el('div', 'acts', null, [stampBtn('Re-review now', () => ({ answer: 'Re-review' }), true), ...(queued ? [el('span', 'hint', 'jumps the queue')] : [])]));
+  } else {
+    needs.append(el('p', 'took', action === 'requested' ? 'Post requested, waiting on the dispatcher.' : 'Nothing right now. A review is running.'));
+  }
+
+  const left = pr.todo.filter((t) => !t.done).length;
+  const file = rel || 'none yet';
+  return el('div', 'card-secs prcard', null, [
+    standing,
+    el('p', 'verdict', pr.verdict || 'No verdict yet.'),
+    needs,
+    fold(`What still needs doing (${left})`, pr.todo.length ? el('ul', 'look', null, pr.todo.map((t) => el('li', t.done ? 'did' : '', t.text))) : el('p', 'took', 'Nothing left.')),
+    fold(`Comment · ${pr.comment.posted ? 'posted' : 'draft'} · ${file}`, rel
+      ? el('div', '', null, [el('div', 'ship', null, [copy, pre]), ...(pr.comment.posted ? [el('p', 'took', 'Posted: ', [isWeb(pr.comment.posted) ? webLink(pr.comment.posted, pr.comment.posted) : pr.comment.posted])] : [])])
+      : el('p', 'took', 'No draft comment yet.')),
+    fold(`Timeline (${pr.timeline.length})`, el('ol', 'tl', null, pr.timeline.map((t) => el('li', '', null, [el('span', 'ts', t.at.slice(5)), el('span', '', t.text)])))),
+  ]);
+}
+
+// A stamp on a PR's card (/api/card/pr-stamp). The card stays selected and re-renders from the row the route returns.
+async function prStamp(body, label) {
+  const row = current();
+  if (!row) return;
+  const buttons = document.querySelectorAll('#pane .prcard .stampbtn, #pane .prtray button');
+  for (const b of buttons) b.disabled = true;
+  try {
+    const next = await api('/api/card/pr-stamp', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ task: row.folder, ...body }) });
+    delete state.drafts[`${row.folder}:pr`];
+    state.prEl = null;
+    stamp(label);
+    updateRow(next);
+  } catch (e) {
+    cardMsg(e.message);
+    for (const b of buttons) b.disabled = false;
+  }
+}
+
+// ---- the card list ----
+const current = () => state.rows.find((r) => r.folder === state.sel) || null;
+const openCount = (r) => r.questions.length + r.queued;
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const day = (d) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d || ''); return m ? `${MON[Number(m[2]) - 1]} ${Number(m[3])}` : String(d || ''); };
+
+const tyClass = (r) => `ty-${String(r.type || 'Feature').toLowerCase().split(' ')[0]}`;
+const tyTag = (r) => `<span class="ty ${tyClass(r)}">${esc(r.type || 'Feature')}</span>`;
+// Agent and gate marks: a filled dot = someone is on the card now, a filled diamond = it waits at that gate.
+const LEAD_MARK = { replying: ['on', 'Lead working'], idle: ['on', 'Lead attached'], 'waiting on you': ['stuck', 'Lead waiting on you'], asleep: ['', 'Lead asleep'] };
+function marksHtml(r) {
+  const out = [];
+  const a = r.agent || { lead: 'none', helpers: 0 };
+  if (LEAD_MARK[a.lead]) out.push(`<span class="mk ${LEAD_MARK[a.lead][0]}">${LEAD_MARK[a.lead][1]}</span>`);
+  if (a.helpers > 0) out.push(`<span class="mk on">${plural(a.helpers, 'helper', 'helpers')} working</span>`);
+  if (!out.length) out.push('<span class="mk">No agent</span>');
+  if (r.gate) out.push(`<span class="mk gate${r.gate.at ? ' at' : ''}">${r.gate.at ? 'At gate' : 'Next gate'}: ${esc(r.gate.name)}</span>`);
+  return `<div class="marks">${out.join('')}</div>`;
+}
+const listItem = (r) => {
+  const need = r.state === 'needs you';
+  const sub = need
+    ? (openCount(r) ? `needs you: ${plural(openCount(r), 'answer', 'answers')}` : 'needs you')
+    : r.where || (r.unreadable ? 'card.json could not be read' : '');
+  return `<div class="item ${tyClass(r)} st-${esc(r.state.split(' ')[0])}${r.folder === state.sel ? ' sel' : ''}" data-folder="${esc(r.folder)}">
+      <div class="ltitle">${tyTag(r)}${esc(r.title)}</div>
+      ${sub ? `<div class="lsub${need ? ' need' : ''}">${esc(sub)}</div>` : ''}
+      ${marksHtml(r)}
+      <div class="lmeta">${esc(r.folder)}</div></div>`;
+};
+
+function renderList() {
+  const needs = state.rows.filter((r) => r.state === 'needs you').length;
+  const closed = state.rows.filter((r) => r.state === 'closed');
+  const open = state.rows.length - closed.length;
+  document.title = (needs ? `(${needs}) ` : '') + 'work-brain cards';
+  $('#count').textContent = open ? `${needs} need you · ${open} open` : 'all clear';
+  $('#nblock').textContent = needs; $('#nblock').hidden = !needs;
+  const showClosed = state.showClosed || current()?.state === 'closed'; // the open card never drops out of view
+  $('#cards').innerHTML = GROUPS.map(([key, title]) => {
+    const rows = state.rows.filter((r) => r.state === key);
+    if (!rows.length && key !== 'needs you') return '';
+    return `<h2>${esc(title)} (${rows.length})</h2>${rows.map(listItem).join('') || '<div class="empty">Nothing needs you.</div>'}`;
+  }).join('')
+    + (closed.length ? `<button class="closedlink" aria-expanded="${showClosed}">Closed (${closed.length}) ${showClosed ? '▾' : '▸'}</button>${showClosed ? closed.map(listItem).join('') : ''}` : '');
+  for (const n of document.querySelectorAll('#cards .item')) n.onclick = () => select(n.dataset.folder);
+  const link = $('#cards .closedlink');
+  if (link) link.onclick = () => { state.showClosed = !showClosed; renderList(); };
+  $('#cards .item.sel')?.scrollIntoView({ block: 'nearest' });
+}
+
+async function select(folder) {
+  state.sel = folder; state.doc = null; state.task = null; state.prEl = null;
+  renderList();
+  const row = current();
+  if (!row) {
+    $('#hd').innerHTML = '<div class="empty">No cards.</div>'; $('#tabs').innerHTML = ''; $('#pane').innerHTML = '';
+    return;
+  }
+  $('#hd').innerHTML = `${tyTag(row)}<div class="task">${esc(row.folder)}${row.lane ? ` · ${esc(row.lane)}` : ''}${row.stage ? ` · ${esc(row.stage)}` : ''}</div>`;
+  showTab(state.tab);
+  try { state.task = await api(`/api/task/${encodeURIComponent(folder)}`); } catch (e) { state.task = { error: e.message, files: {}, shots: {} }; }
+  if (state.sel !== folder) return; // moved on while loading
+  if (state.tab !== 'card') showTab(state.tab);
+}
+
+function showTab(tab) {
+  state.tab = tab; if (state.view === 'cards') history.replaceState(null, '', `#${tab}`);
+  $('#tabs').innerHTML = TABS.map(([k, label]) => `<button class="${k === tab ? 'on' : ''}" data-tab="${k}">${label}</button>`).join('');
+  for (const b of document.querySelectorAll('#tabs button')) b.onclick = () => showTab(b.dataset.tab);
+  const pane = $('#pane');
+  const row = current();
+  if (!row) return;
+  if (tab === 'card') return renderCard(pane, row);
+  const t = state.task;
+  if (!t) return (pane.innerHTML = '<div class="empty">Loading…</div>');
+  if (t.error) return (pane.innerHTML = `<div class="empty">Could not load task: ${esc(t.error)}</div>`);
+  if (tab === 'docs') return renderDocs(pane, t);
+  if (tab === 'diff') return renderDiff(pane, t.repo);
+  if (tab === 'diagram') return renderDiagram(pane, t.diagram);
+  if (tab === 'shots') {
+    const { before, after } = t.shots;
+    pane.innerHTML = before || after
+      ? `<div class="shots"><div><h3>Before</h3>${before ? `<img src="${before}" alt="before">` : '<div class="empty">none</div>'}</div>
+         <div><h3>After</h3>${after ? `<img src="${after}" alt="after">` : '<div class="empty">none</div>'}</div></div>`
+      : '<div class="empty">No UI change recorded</div>';
+  }
+}
+
+function renderDocs(pane, t) {
+  const names = Object.keys(t.files);
+  if (!names.includes(state.doc)) state.doc = names[0] || null;
+  pane.innerHTML = `<div class="pills">${names.map((n) => `<button class="${n === state.doc ? 'on' : ''}" data-doc="${esc(n)}">${esc(n)}</button>`).join('')}${(t.others || []).map((n) => `<span class="other">${esc(n)}</span>`).join('')}${state.doc ? '<button class="copymd">Copy markdown</button>' : ''}</div>
+    <div class="md">${state.doc ? marked.parse(t.files[state.doc]) : '<div class="empty">No markdown files in this task folder.</div>'}</div>`;
+  for (const b of pane.querySelectorAll('.pills button[data-doc]')) b.onclick = () => { state.doc = b.dataset.doc; renderDocs(pane, t); };
+  const copy = pane.querySelector('.copymd');
+  if (copy) copy.onclick = () => copyMd(copy, t.files[state.doc]);
+}
+
+// ---- the open card ----
+// A task file named on the card: .md opens in the Brief / Plan viewer here, anything else (a mockup) in a new tab.
+const fileLink = (folder, file, text) => (/\.md$/i.test(file)
+  ? `<button class="link" data-doc="${esc(file)}">${esc(text)}</button>`
+  : `<a class="link" href="/api/task-file?folder=${encodeURIComponent(folder)}&path=${encodeURIComponent(file)}" target="_blank" rel="noopener">${esc(text)}</a>`);
+
+function packetHtml(p) {
+  if (!p) return '<div class="packet"><p class="warn">packet.md is missing: there is nothing to run.</p></div>';
+  return `<div class="packet">${p.title ? `<h4>${esc(p.title)}</h4>` : ''}
+    ${p.look.length ? `<div class="sec">Look</div><ul class="look md">${p.look.map((l) => `<li>${marked.parseInline(l)}</li>`).join('')}</ul>` : ''}
+    ${p.ship ? `<div class="sec">Ship</div><div class="ship"><button class="copy">Copy</button><pre>${esc(p.ship)}</pre></div>` : '<p class="warn">packet.md has no Ship block: Approve runs nothing.</p>'}</div>`;
+}
+
+const answerBox = (key, label) => `<div class="answerrow"><textarea data-draft="${esc(key)}" placeholder="${esc(label)}">${esc(state.drafts[key] || '')}</textarea><button class="act" data-send="${esc(key)}">Send</button></div>`;
+
+// A finished research card: the next move is the manager's. Each button answers the question with its own words
+// (/cards step 3 tells the dispatcher what each one starts); two of them need the note.
+const NEXT = [['Dig further', 'What to dig into'], ['Build it'], ['Write tickets'], ['Draft a message', 'Who it is for']];
+function nextHtml(row, x, n) {
+  const key = `${row.folder}:${x.id}`;
+  return `<li class="q" data-id="${esc(x.id)}">
+    <div class="qt">${n}. ${esc(x.q)}</div>
+    <div class="answerrow"><textarea data-draft="${esc(key)}" placeholder="Note: what to dig into, or who the message is for">${esc(state.drafts[key] || '')}</textarea></div>
+    <div class="qa"><span class="qbtns">${NEXT.map(([b]) => `<button class="stampbtn" data-next="${esc(b)}" data-key="${esc(key)}">${b}</button>`).join('')}
+      <button class="act" data-card="close">Nothing more: close card</button>
+      ${x.file ? fileLink(row.folder, x.file, `${x.file} ▸`) : ''}</span></div>
+  </li>`;
+}
+
+function questionHtml(row, x, n) {
+  if (x.kind === 'next step') return nextHtml(row, x, n);
+  const key = `${row.folder}:${x.id}`;
+  const ship = x.kind === 'ship approval';
+  const accept = ship ? (x.packet?.ship ? 'Approve: run Ship' : 'Approve') : 'Accept';
+  const whyOpen = state.why.has(key);
+  return `<li class="q" data-id="${esc(x.id)}">
+    <div class="qt">${n}. ${esc(x.q)}</div>
+    ${ship ? packetHtml(x.packet) : ''}
+    <div class="qa"><span class="sug"><span class="lbl">Suggested:</span> ${esc(x.suggested || '—')}</span>
+      <span class="qbtns"><button class="stampbtn" data-accept="${esc(x.id)}" ${x.suggested ? '' : 'disabled title="No suggested answer: use Other…"'}>${accept}</button>
+        <button class="act" data-other="${esc(key)}">Other…</button>
+        ${x.why ? `<button class="link" data-why="${esc(key)}" aria-expanded="${whyOpen}">why ${whyOpen ? '▾' : '▸'}</button>` : ''}
+        ${x.file ? fileLink(row.folder, x.file, `${x.file} ▸`) : ''}</span></div>
+    ${x.why && whyOpen ? `<p class="whyp">${esc(x.why)} <button class="link" data-asklead="${esc(x.id)}">ask the lead</button></p>` : ''}
+    ${state.typing.has(key) ? answerBox(key, 'Your answer') : ''}
+  </li>`;
+}
+
+function decidedHtml(row, d) {
+  const key = `${row.folder}:${d.id}`;
+  if (d.kind !== 'assumed') return `<li><span class="mk">✓</span><span class="dt">${esc(d.q)} → <b>${esc(d.answer)}</b></span><span></span><span class="date">${esc(day(d.answered))}</span></li>`;
+  return `<li class="as"><span class="mk">~</span><span class="dt">Assumed: ${esc(d.q)}${d.answer !== d.q ? ` → <b>${esc(d.answer)}</b>` : ''}</span>
+    <button class="act" data-change="${esc(key)}">Change</button><span class="date">${esc(day(d.answered))}</span>
+    ${state.typing.has(key) ? answerBox(key, 'What should it be instead?') : ''}</li>`;
+}
+
+const DECIDED_SHOWN = 3;
+function cardHtml(row) {
+  const need = row.state === 'needs you';
+  const n = openCount(row);
+  const head = `<div class="ch"><h3 class="ctitle">${esc(row.title)}</h3>${need ? `<span class="need">${n ? `needs you: ${plural(n, 'answer', 'answers')}` : 'needs you'}</span>` : `<span class="chip t-${row.state === 'waiting on someone else' ? 'wait' : 'done'}">${esc(row.state)}</span>`}</div>`;
+  if (row.unreadable) return `${head}${marksHtml(row)}<p class="line">card.json could not be read: ${esc(row.unreadable)}</p>`;
+  const decided = row.decided.map((d) => decidedHtml(row, d));
+  return `${head}${marksHtml(row)}
+    ${row.where ? `<p class="line"><span class="lbl">Where it stands:</span> ${esc(row.where)}</p>` : ''}
+    ${row.questions.length ? `<ol class="qs">${row.questions.map((x, i) => questionHtml(row, x, i + 1)).join('')}</ol>` : ''}
+    ${row.queued > 0 ? `<p class="queued">+ ${row.queued} more waiting</p>` : ''}
+    ${row.next && row.questions.length ? `<p class="line"><span class="lbl">After you answer:</span> ${esc(row.next)}</p>` : ''}
+    ${row.later.length ? `<p class="line"><span class="lbl">Later, not blocking:</span> ${row.later.map(esc).join(' · ')}</p>` : ''}
+    <div id="prslot"></div>
+    ${decided.length ? `<div class="dech">Decided</div><ul class="decided">${decided.slice(0, DECIDED_SHOWN).join('')}</ul>
+      ${decided.length > DECIDED_SHOWN ? `<details class="earlier"${state.earlier.has(row.folder) ? ' open' : ''}><summary>${decided.length - DECIDED_SHOWN} earlier</summary><ul class="decided">${decided.slice(DECIDED_SHOWN).join('')}</ul></details>` : ''}` : ''}`;
+}
+
+function actionsHtml(row) {
+  const f = esc(row.folder);
+  const result = row.result ? fileLink(row.folder, row.result, 'Read the result ▸').replace('class="link"', 'class="link readres"') : '';
+  const btns = row.state === 'closed'
+    ? `<button class="act" data-card="reopen">Reopen</button>`
+    : `${row.state === 'parked' ? `<button class="act" data-act="unpark" data-folder="${f}">Unpark</button>` : `<button class="act" data-act="park" data-folder="${f}">Park</button>`}
+       <button class="act drop" data-act="drop" data-folder="${f}">Drop</button><button class="act" data-card="close">Close card</button>`;
+  return `<div class="cacts">${result}<span class="sp"></span>${btns}</div><div class="cmsg" role="alert"></div>`;
+}
+
+// The PR pane inside the card, plus the stamps its Needs you block does not offer. Reused while pr.md is unchanged so picked options survive a re-render.
+function prSection(row) {
+  const key = JSON.stringify([row.folder, row.pr, row.post, row.postable]);
+  if (state.prEl?.key === key) return state.prEl.el;
+  const draftKey = `${row.folder}:pr`;
+  const note = Object.assign(el('input'), { placeholder: 'Note (needed for Changes)', value: state.drafts[draftKey] || '' });
+  note.dataset.draft = draftKey;
+  const tray = el('div', 'prtray', null, [note, ...prTray(row).map((b) => Object.assign(el('button', 'act', b === 'Changes' ? 'Changes…' : b), { onclick: () => {
+    const text = note.value.trim();
+    if (b === 'Changes' && !text) { cardMsg('Changes needs a note'); return note.focus(); }
+    prStamp({ answer: text ? `${b}: ${text}` : b }, b);
+  } }))]);
+  const box = el('div', '', null, [prCard(row), tray]);
+  state.prEl = { key, el: box };
+  return box;
+}
+
+function cardMsg(text) { const m = $('#pane .cmsg'); if (m) m.textContent = text; }
+
+function renderCard(pane, row) {
+  const focused = document.activeElement?.dataset?.draft; // keep the cursor in a half-typed answer across a re-render
+  const top = pane.scrollTop;
+  pane.innerHTML = `<div class="cardv">${cardHtml(row)}<section class="chat" data-task="${esc(row.folder)}"></section>${actionsHtml(row)}</div>`;
+  if (row.pr !== undefined) $('#prslot')?.replaceWith(prSection(row));
+  paintChat(row.folder);
+  pane.scrollTop = top;
+  wireCopy(pane);
+  wireActions(pane);
+  for (const b of pane.querySelectorAll('[data-accept]')) b.onclick = () => {
+    const x = row.questions.find((q) => q.id === b.dataset.accept);
+    answerQ(row, x.id, x.suggested, x.kind === 'ship approval' ? 'Approved' : 'Accepted');
+  };
+  const toggle = (set, key) => { set.has(key) ? set.delete(key) : set.add(key); renderCard(pane, current()); };
+  for (const b of pane.querySelectorAll('[data-why]')) b.onclick = () => toggle(state.why, b.dataset.why);
+  for (const b of pane.querySelectorAll('[data-asklead]')) b.onclick = () => {
+    const x = row.questions.find((q) => q.id === b.dataset.asklead);
+    state.drafts[`${row.folder}:chat`] = `About "${x.q}": `;
+    paintChat(row.folder);
+    const t = pane.querySelector('textarea[data-draft$=":chat"]');
+    if (t) { t.focus(); t.selectionStart = t.selectionEnd = t.value.length; }
+  };
+  for (const b of pane.querySelectorAll('[data-other], [data-change]')) b.onclick = () => {
+    const key = b.dataset.other || b.dataset.change;
+    toggle(state.typing, key);
+    pane.querySelector(`textarea[data-draft="${CSS.escape(key)}"]`)?.focus();
+  };
+  for (const t of pane.querySelectorAll('[data-draft]')) t.oninput = () => { state.drafts[t.dataset.draft] = t.value; };
+  for (const b of pane.querySelectorAll('[data-send]')) b.onclick = () => {
+    const key = b.dataset.send, text = (state.drafts[key] || '').trim();
+    if (!text) return pane.querySelector(`textarea[data-draft="${CSS.escape(key)}"]`)?.focus();
+    const id = key.slice(row.folder.length + 1);
+    const change = row.decided.some((d) => d.id === id);
+    answerQ(row, id, text, change ? 'Changed' : 'Sent', change);
+  };
+  for (const b of pane.querySelectorAll('[data-next]')) b.onclick = () => {
+    const key = b.dataset.key, note = (state.drafts[key] || '').trim();
+    const needs = NEXT.find(([n]) => n === b.dataset.next)[1];
+    if (needs && !note) { cardMsg(`${b.dataset.next} needs a note: ${needs.toLowerCase()}`); return pane.querySelector(`textarea[data-draft="${CSS.escape(key)}"]`)?.focus(); }
+    answerQ(row, key.slice(row.folder.length + 1), note ? `${b.dataset.next}: ${note}` : b.dataset.next, b.dataset.next);
+  };
+  for (const b of pane.querySelectorAll('[data-doc]')) b.onclick = () => { state.doc = b.dataset.doc; showTab('docs'); };
+  for (const b of pane.querySelectorAll('[data-card]')) b.onclick = () => closeOrReopen(row, b.dataset.card);
+  const earlier = pane.querySelector('details.earlier');
+  if (earlier) earlier.ontoggle = () => { earlier.open ? state.earlier.add(row.folder) : state.earlier.delete(row.folder); };
+  if (focused) {
+    const t = pane.querySelector(`[data-draft="${CSS.escape(focused)}"]`);
+    if (t) { t.focus(); t.selectionStart = t.selectionEnd = t.value.length; }
+  }
+}
+
+// --- chat with the card's lead (a herdr agent); its replies land in the same thread through a Stop hook ---
+const LEAD_WORDS = { none: 'no lead yet', replying: 'lead is replying…', 'waiting on you': 'lead is waiting on you', idle: 'lead is idle' };
+function chatHtml(folder, c) {
+  const key = `${folder}:chat`;
+  const lines = c.lines.map((l) => `<li class="${l.who === 'lead' ? 'lead' : ''}"><span class="who">${esc(l.who)}</span><span class="date">${esc(l.ts)}</span>${esc(l.text)}</li>`).join('');
+  return `<div class="dech">Chat with the lead</div>
+    ${lines ? `<ul class="thread">${lines}</ul>` : ''}
+    <div class="answerrow"><textarea data-draft="${esc(key)}" placeholder="Message the lead on this card">${esc(state.drafts[key] || '')}</textarea><button class="act" data-chatsend>Send</button></div>
+    <div class="leadrow"><span>${esc(LEAD_WORDS[c.lead] || c.lead)}</span>
+      ${c.lead && c.lead !== 'none' ? '<button class="link" data-golead>Go to lead</button>' : ''}
+      ${c.error ? `<span class="failed">Not sent: ${esc(c.error)}</span><button class="act" data-retry>Retry</button>` : ''}</div>`;
+}
+// Fill the open card's chat section from state.chat, fetching the thread the first time; keeps a half-typed message and its cursor.
+function paintChat(folder) {
+  const sec = $('#pane section.chat');
+  if (!sec || sec.dataset.task !== folder) return;
+  const c = state.chat[folder];
+  if (!c) { sec.innerHTML = '<div class="dech">Chat with the lead</div><p class="line">Loading…</p>'; loadChat(folder); return; }
+  const focused = document.activeElement?.dataset?.draft;
+  sec.innerHTML = chatHtml(folder, c);
+  const box = sec.querySelector('textarea');
+  box.oninput = () => { state.drafts[`${folder}:chat`] = box.value; };
+  sec.querySelector('[data-chatsend]').onclick = () => sendChat(folder, '/api/card/chat', (state.drafts[`${folder}:chat`] || '').trim());
+  const go = sec.querySelector('[data-golead]');
+  if (go) go.onclick = () => api('/api/card/lead/focus', post({ task: folder })).catch((e) => cardMsg(e.message));
+  const retry = sec.querySelector('[data-retry]');
+  if (retry) retry.onclick = () => sendChat(folder, '/api/card/chat/retry');
+  if (focused === box.dataset.draft) { box.focus(); box.selectionStart = box.selectionEnd = box.value.length; }
+}
+const post = (body) => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+function setChat(folder, c) {
+  state.chat[folder] = c;
+  paintChat(folder);
+  // every 3 s while the lead is replying, until its answer lands
+  clearTimeout(state.chatPoll[folder]);
+  if (c.lead === 'replying') state.chatPoll[folder] = setTimeout(() => loadChat(folder), 3000);
+}
+async function loadChat(folder) {
+  try {
+    const d = await api(`/api/card/thread?task=${encodeURIComponent(folder)}`);
+    setChat(folder, { ...d, error: d.lines.at(-1)?.who === 'Manager' ? state.chat[folder]?.error : undefined }); // a reply clears a failed send
+  } catch (e) { cardMsg(e.message); }
+}
+async function sendChat(folder, url, text) {
+  if (url.endsWith('/chat') && !text) return $('#pane section.chat textarea')?.focus();
+  for (const b of document.querySelectorAll('#pane section.chat button')) b.disabled = true;
+  try {
+    const d = await api(url, post({ task: folder, ...(text && { text }) }));
+    if (text) delete state.drafts[`${folder}:chat`]; // the line is saved even when the lead was not reached
+    setChat(folder, { lines: d.lines, lead: d.lead, error: d.error });
+  } catch (e) {
+    cardMsg(e.message);
+    for (const b of document.querySelectorAll('#pane section.chat button')) b.disabled = false;
+  }
+}
+
+// Swap in the row a card route returned; the card stays selected even when it changes group.
+function updateRow(row) {
+  if (!row) return;
+  state.rows = state.rows.some((r) => r.folder === row.folder) ? state.rows.map((r) => (r.folder === row.folder ? { ...r, ...row } : r)) : [...state.rows, row];
+  seenNeeds = new Set(state.rows.filter((r) => r.state === 'needs you').map((r) => r.folder));
+  renderList();
+  if (state.sel === row.folder && state.tab === 'card' && state.view === 'cards') renderCard($('#pane'), row);
+}
+
+async function answerQ(row, id, text, label, change = false) {
+  const key = `${row.folder}:${id}`;
+  const buttons = document.querySelectorAll(`#pane .q[data-id="${CSS.escape(id)}"] button, #pane .decided button`);
+  for (const b of buttons) b.disabled = true;
+  try {
+    const next = await api('/api/card/answer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ task: row.folder, id, answer: text, ...(change && { change: true }) }) });
+    delete state.drafts[key]; state.typing.delete(key); state.why.delete(key);
+    stamp(label);
+    updateRow(next);
+  } catch (e) {
+    cardMsg(e.message);
+    for (const b of buttons) b.disabled = false;
+  }
+}
+
+async function closeOrReopen(row, which) {
+  try {
+    const next = await api(`/api/card/${which}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ task: row.folder }) });
+    stamp(which === 'close' ? 'Closed' : 'Reopened');
+    // After a close, move on to the next open card: staying on the closed one would unfold the whole Closed list.
+    const open = which === 'close' ? state.rows.filter((r) => r.state !== 'closed' || r.folder === row.folder) : [];
+    const after = open[open.findIndex((r) => r.folder === row.folder) + 1] || open.find((r) => r.folder !== row.folder);
+    updateRow(next);
+    if (after) select(after.folder);
+  } catch (e) { cardMsg(e.message); }
+}
+
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  const j = await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }));
+  if (!j.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  return j.data;
+}
+
+function colorDiff(patch) {
+  return patch.split('\n').map((l) => {
+    const cls = l.startsWith('diff --git') || l.startsWith('###') ? 'file'
+      : l.startsWith('@@') ? 'hunk' : l.startsWith('+') && !l.startsWith('+++') ? 'add' : l.startsWith('-') && !l.startsWith('---') ? 'del' : '';
+    return `<span class="${cls}">${esc(l) || ' '}</span>`;
+  }).join('');
+}
+
+async function renderDiff(pane, repo) {
+  if (!repo) return (pane.innerHTML = '<div class="empty">No repo resolved</div>');
+  pane.innerHTML = `<div class="empty">Loading diff for ${esc(repo.name)}…</div>`;
+  try {
+    state.diff[repo.name] = state.diff[repo.name] || await api(`/api/diff?repo=${encodeURIComponent(repo.name)}`);
+  } catch (e) { return (pane.innerHTML = `<div class="empty">Diff failed: ${esc(e.message)}</div>`); }
+  if (state.tab !== 'diff') return;
+  const d = state.diff[repo.name];
+  pane.innerHTML = `<div class="raw">${esc(d.status)} · <code>${esc(repo.path)}</code></div>`
+    + (d.patch ? `<pre class="stat">${esc(d.stat)}</pre><pre class="diff">${colorDiff(d.patch)}</pre>` : '<div class="empty">No diff</div>');
+}
+
+async function renderDiagram(pane, code, live = () => state.tab === 'diagram') {
+  if (!code) return (pane.innerHTML = '<div class="empty">No diagram for this task</div>');
+  try {
+    if (document.fonts?.ready) await document.fonts.ready; // Jost loads with display=swap; Mermaid must measure labels in the final font
+    const { svg } = await mermaid.render(`mmd${Date.now()}`, code);
+    if (live()) pane.innerHTML = svg;
+  } catch (e) { pane.innerHTML = `<div class="empty">Diagram failed to render: ${esc(e.message)}</div><pre>${esc(code)}</pre>`; }
+}
+
+function stamp(text) {
+  const el = document.createElement('div');
+  el.className = 'stamped'; el.textContent = text;
+  $('#right').appendChild(el);
+  return new Promise((r) => setTimeout(() => { el.remove(); r(); }, 700));
+}
+
+(function clock() {
+  const pal = ['#d97757', '#d9a441', '#4f8a7e', 'currentColor'];
+  $('#spokes').innerHTML = Array.from({ length: 12 }, (_, i) => {
+    const a = i * Math.PI / 6, c = Math.cos(a), s = Math.sin(a);
+    return `<line x1="${30 + 13 * c}" y1="${30 + 13 * s}" x2="${30 + 23 * c}" y2="${30 + 23 * s}"/><circle cx="${30 + 26 * c}" cy="${30 + 26 * s}" r="3.2" fill="${pal[i % 4]}" stroke="none"/>`;
+  }).join('');
+  const tick = () => {
+    const d = new Date(), m = d.getMinutes(), h = (d.getHours() % 12) + m / 60;
+    $('#hh').setAttribute('transform', `rotate(${h * 30} 30 30)`); $('#mh').setAttribute('transform', `rotate(${m * 6} 30 30)`);
+  };
+  tick(); setInterval(tick, 30000);
+})();
+
+// ping: a card that newly needs the manager since the last fetch; the first fetch only remembers.
+let seenNeeds = null, audio = null;
+const wakeAudio = () => { audio ||= new AudioContext(); if (audio.state === 'suspended') audio.resume(); };
+addEventListener('click', wakeAudio, true); addEventListener('keydown', wakeAudio, true); // autoplay rule: audio starts on a gesture
+function ping() {
+  if (audio?.state !== 'running') return;
+  const t = audio.currentTime, osc = audio.createOscillator(), gain = audio.createGain();
+  osc.frequency.value = 880;
+  gain.gain.setValueAtTime(0.05, t);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+  osc.connect(gain).connect(audio.destination);
+  osc.start(t); osc.stop(t + 0.3);
+}
+async function fetchCards() {
+  state.rows = await api('/api/cards');
+  const needs = new Set(state.rows.filter((r) => r.state === 'needs you').map((r) => r.folder));
+  const fresh = seenNeeds && [...needs].some((f) => !seenNeeds.has(f));
+  seenNeeds = needs;
+  if (fresh) ping();
+}
+async function loadCards() {
+  await fetchCards();
+  select(current()?.folder || state.rows[0]?.folder || null);
+}
+// On a cards event: re-fetch, keep the open card; it re-renders only when its own row changed, so half-typed text and focus stay put.
+async function refreshCards() {
+  const before = JSON.stringify(current());
+  await fetchCards();
+  renderList();
+  const row = current();
+  if (!row) return select(state.rows[0]?.folder || null);
+  if (JSON.stringify(row) !== before && state.view === 'cards' && state.tab === 'card') renderCard($('#pane'), row);
+  if (state.chat[row.folder]) loadChat(row.folder); // a lead reply touches threads/card.md, which raises a cards event
+}
+// per-viewer convenience: wide pane hides the card list; remembered in localStorage, which may be unavailable
+const syncWide = on => { $('#rail').setAttribute('aria-pressed', String(on)); $('#rail').textContent = on ? '›' : '‹'; };
+try { syncWide(document.body.classList.toggle('wide', localStorage.getItem('wide') === '1')); } catch {}
+// Wind down: end of day. Leads close now; the dispatcher stops its helpers when it hears the event.
+$('#wind').onclick = async () => {
+  if (!confirm('Wind down for the day? Every lead closes now, a busy one included, and the dispatcher stops its helpers.')) return;
+  try {
+    const r = await api('/api/wind-down', { method: 'POST' });
+    stamp(`Wound down: ${r.leads} lead${r.leads === 1 ? '' : 's'} closed${r.listeners ? '' : ', no dispatcher listening'}`);
+  } catch (e) { alert(e.message); }
+};
+
+// + New card: The manager raises a card themselves; the server makes the task folder and the dispatcher picks it up.
+const showNew = (on) => { $('#newform').hidden = !on; $('#newbtn').hidden = on; $('#newbtn').setAttribute('aria-expanded', String(on)); if (on) $('#newform [name=title]').focus(); else $('#newbtn').focus(); };
+$('#newbtn').onclick = () => showNew(true);
+$('#newcancel').onclick = () => showNew(false);
+$('#newform').onsubmit = async (e) => {
+  e.preventDefault();
+  const f = e.target; const err = f.querySelector('.err'); err.textContent = '';
+  try {
+    const row = await api('/api/card/new', post({ type: f.elements.type.value, title: f.elements.title.value, details: f.elements.details.value }));
+    f.reset(); showNew(false);
+    await refreshCards(); select(row.folder);
+  } catch (x) { err.textContent = x.message; }
+};
+$('#rail').onclick = () => { const on = document.body.classList.toggle('wide'); syncWide(on); try { localStorage.setItem('wide', on ? '1' : '0'); } catch {} };
+loadCards().catch((e) => { $('#hd').innerHTML = `<div class="empty">Failed to load cards: ${esc(e.message)}</div>`; });
+
+// Park / Unpark / Drop: the same three routes from the open card or a pipeline row
+const actionButtons = (folder, parked) => (parked
+  ? `<button class="act" data-act="unpark" data-folder="${esc(folder)}">Unpark</button>`
+  : `<button class="act" data-act="park" data-folder="${esc(folder)}">Park</button>`)
+  + `<button class="act drop" data-act="drop" data-folder="${esc(folder)}">Drop</button>`;
+function wireActions(scope) {
+  for (const b of scope.querySelectorAll('button.act[data-act]')) b.onclick = () => act(b.dataset.act, b.dataset.folder);
+}
+async function act(route, folder) {
+  const bare = folder.replace(/^tasks\//, '');
+  if (route === 'drop' && !confirm(`Drop ${bare}? It cannot be undone from this page; the folder stays.`)) return;
+  const buttons = document.querySelectorAll(`button.act[data-folder="${CSS.escape(folder)}"]`);
+  for (const b of buttons) b.disabled = true;
+  try {
+    await api(`/api/${route}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ task: bare }) });
+    stamp(route === 'unpark' ? 'back' : route === 'drop' ? 'dropped' : 'parked');
+    await refreshCards();
+    if (state.view === 'pipeline') await loadPipeline();
+  } catch (e) {
+    cardMsg(e.message);
+    for (const b of buttons) b.disabled = false;
+  }
+}
+
+// one light per stage: passed lit, current pulsing, awaiting amber with its label, blocked red with the reason
+const lightHtml = (st) => `<span class="light ${st.state}"><i></i>${esc(st.name)}${st.label ? ` <em>· ${esc(st.label)}</em>` : ''}</span>`;
+function renderPipeline() {
+  const { rows, parked } = state.pipeline;
+  const row = (r) => `
+    <div class="item prow">
+      <div class="phead"><span class="badge lane">${esc(r.lane)}</span><strong class="card">${esc(r.card)}</strong><span class="task">${esc(r.folder)}</span>
+        ${r.agentCount > 0 ? `<span class="badge agents">${r.agentCount} ${r.agentCount === 1 ? 'agent' : 'agents'}</span>` : ''}
+        <div class="actions">${actionButtons(r.folder, false)}</div></div>
+      <div class="lights">${r.stages.map(lightHtml).join('')}</div></div>`;
+  const parkedRow = (p) => `
+    <div class="item prow">
+      <div class="phead"><span class="badge lane">${esc(p.lane)}</span><strong class="card">${esc(p.card)}</strong><span class="task">${esc(p.folder)}</span>
+        <span class="badge stage">at ${esc(p.stage)}</span><div class="actions">${actionButtons(p.folder, true)}</div></div></div>`;
+  $('#pipeline').innerHTML = `<h2>In flight (${rows.length})</h2>` + (rows.map(row).join('') || '<div class="empty">Nothing in flight.</div>')
+    + (parked.length ? `<h2>Parked (${parked.length})</h2>` + parked.map(parkedRow).join('') : '');
+  wireActions($('#pipeline'));
+}
+async function loadPipeline() {
+  try { state.pipeline = await api('/api/pipeline'); renderPipeline(); }
+  catch (e) { $('#pipeline').innerHTML = `<div class="empty">Failed to load pipeline: ${esc(e.message)}</div>`; }
+}
+setInterval(() => { if (state.view === 'cards') refreshCards().catch(() => {}); }, 30000); // a lead or helper starting or stopping does not broadcast
+setInterval(() => { if (state.view === 'pipeline') loadPipeline(); }, 30000); // status.json changes alone do not broadcast
+
+// stats: whole seconds as "1h 12m" / "12m" / "<1m"; a leading ~ marks time inferred from the next start rather than a done row
+const dur = (s) => { const m = Math.round((s || 0) / 60); return s > 0 && m === 0 ? '<1m' : m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`; };
+const STAGE_ORDER = ['tdd', 'review', 'verify', 'research', 'scribe', 'other'];
+const DAY_MS = 24 * 60 * 60 * 1000;
+// "last 24 h" keeps a card whose newest dispatch touched the last day (an open start counts as a touch via lastTs)
+const recentCard = (c, now) => c.lastTs && Date.parse(c.lastTs) >= now - DAY_MS;
+function renderStats() {
+  const { cards, recent, open } = state.stats;
+  const now = Date.now();
+  const shown = recent ? cards.filter((c) => recentCard(c, now)) : cards; // the API already sorts slowest first
+  const line = (label, value, cls) => `<div class="line ${cls || ''}"><span>${esc(label)}</span><span>${esc(value)}</span></div>`;
+  const row = (c) => {
+    const total = c.agentSeconds + c.dispatcherSeconds;
+    const pct = (s) => (total ? (s / total) * 100 : 0).toFixed(1);
+    const mark = c.inferredSeconds > 0 ? '~' : '';
+    const roles = Object.entries(c.roles).sort((a, b) => b[1].seconds - a[1].seconds)
+      .map(([agent, r]) => line(agent, `${r.count} × · ${mark}${dur(r.seconds)}`)).join('');
+    const stages = STAGE_ORDER.filter((s) => c.stages[s] > 0).map((s) => line(s, `${mark}${dur(c.stages[s])}`)).join('');
+    const detail = `<h3>By role</h3>${roles || '<div class="line"><span>none closed yet</span></div>'}<h3>By stage</h3>${stages || '<div class="line"><span>none closed yet</span></div>'}`
+      + (c.inferredSeconds > 0 ? line('~ inferred', dur(c.inferredSeconds), 'inferred') : '');
+    return `
+    <div class="item srow" data-folder="${esc(c.folder)}" title="${esc(c.folder || 'dispatches that named no task folder')}">
+      <div class="shead">${c.lane ? `<span class="badge lane">${esc(c.lane)}</span>` : ''}<strong class="card">${esc(c.card || c.folder || 'no task folder')}</strong>
+        ${c.stage ? `<span class="badge stage">at ${esc(c.stage)}</span>` : ''}
+        <span class="meta">${c.dispatches} ${c.dispatches === 1 ? 'dispatch' : 'dispatches'}${c.openCount ? ` · ${c.openCount} open` : ''}</span>
+        <span class="total">${mark}${dur(total)}</span></div>
+      <div class="bar"><i class="agent" style="width:${pct(c.agentSeconds)}%"></i><i class="disp" style="width:${pct(c.dispatcherSeconds)}%"></i></div>
+      <div class="split"><span class="agent"><b></b>agents ${mark}${dur(c.agentSeconds)}</span><span class="disp"><b></b>between dispatches ${dur(c.dispatcherSeconds)}</span></div>
+      <div class="detail" ${open[c.folder] ? '' : 'hidden'}>${detail}</div></div>`;
+  };
+  const tools = `<div class="stools"><span>slowest first</span><label><input type="checkbox" id="recent" ${recent ? 'checked' : ''}> last 24 h</label>
+    <span class="hint">~ inferred, capped at 2 h: no done row, closed at the next start · each gap between dispatches is capped at 2 h too</span></div>`;
+  $('#stats').innerHTML = tools + (shown.map(row).join('') || `<div class="empty">${cards.length ? 'Nothing in the last 24 h.' : 'No dispatches yet.'}</div>`);
+  $('#recent').onchange = (e) => { state.stats.recent = e.target.checked; renderStats(); };
+  for (const el of document.querySelectorAll('#stats .srow')) el.onclick = () => { state.stats.open[el.dataset.folder] = !state.stats.open[el.dataset.folder]; renderStats(); };
+}
+async function loadStats() {
+  try { const { cards } = await api('/api/stats'); state.stats = { ...state.stats, cards }; renderStats(); }
+  catch (e) { $('#stats').innerHTML = `<div class="empty">Failed to load stats: ${esc(e.message)}</div>`; }
+}
+setInterval(() => { if (state.view === 'stats') loadStats(); }, 30000); // done rows written by bin/dispatch do not broadcast
+
+// mirrors sectionFor in board-lib.js: review and research cards are not ours to ship, so they get their own block
+const sectionFor = (lane) => (lane === 'review' || lane === 'research' ? 'Reviews & research' : 'Our cards');
+// one status list for both sections (task-log.md legend order); a section shows only the columns it has cards in
+const STATUSES = ['in-progress', 'pr-open', 'merged', 'deployed', 'reviewed', 'dropped'];
+const SECTIONS = ['Our cards', 'Reviews & research'];
+async function loadBoard() {
+  let rows;
+  try { rows = await api('/api/board'); }
+  catch (e) { return ($('#board').innerHTML = `<div class="empty">Failed to load board: ${esc(e.message)}</div>`); }
+  $('#board').innerHTML = SECTIONS.map((name) => {
+    const mine = rows.filter((r) => sectionFor(r.lane) === name);
+    const cols = STATUSES.filter((s) => mine.some((r) => r.status === s)).map((s) => {
+      const cards = mine.filter((r) => r.status === s).map((r) => {
+        const tag = r.folder ? 'a' : 'div';
+        return `<${tag} class="item card" ${r.folder ? `href="#files/${esc(r.folder)}"` : ''}>
+          <span class="badge lane">${esc(r.lane)}</span>${r.openItems > 0 ? ` <span class="badge open">${r.openItems} open</span>` : ''}
+          <div class="task">${esc(r.ticket)} · ${esc(r.date)}</div>
+          <div class="text">${esc(r.what)}</div></${tag}>`;
+      });
+      return `<div class="col"><h2>${s} (${cards.length})</h2>${cards.join('')}</div>`;
+    });
+    return `<h2 class="section">${esc(name)}</h2><div class="cols">${cols.join('') || '<div class="empty">none</div>'}</div>`;
+  }).join('');
+}
+
+async function loadFiles(p) {
+  state.file = p;
+  const pane = $('#fpane');
+  let tree;
+  try { tree = await api('/api/files'); }
+  catch (e) { return ($('#tree').innerHTML = `<div class="empty">Failed to load files: ${esc(e.message)}</div>`); }
+  const folder = tree.tasks.find((t) => t.folder === p);
+  if (folder && folder.files[0]) p = state.file = `${p}/${folder.files[0]}`; // a board card links to its folder; open its first card
+  const link = (f) => `<a href="#files/${esc(f)}" class="${f === p ? 'on' : ''}">${esc(f.split('/').pop())}</a>`;
+  $('#tree').innerHTML = '<h2>Tasks</h2>' + (tree.tasks.map((t) => `<details ${p.startsWith(`${t.folder}/`) ? 'open' : ''}><summary>${esc(t.folder.slice(6))}</summary>${t.files.map((f) => link(`${t.folder}/${f}`)).join('')}</details>`).join('') || '<div class="empty">none</div>')
+    + '<h2>Retros</h2>' + (tree.retros.map(link).join('') || '<div class="empty">none</div>')
+    + (tree.suggestionBox ? `<h2>Suggestion box</h2>${link(tree.suggestionBox)}` : '')
+    + (tree.misses ? `<h2>Misses</h2>${link(tree.misses)}` : '')
+    + (tree.answers ? `<h2>Quick answers</h2>${link(tree.answers)}` : '');
+  if (!p) return (pane.innerHTML = '<div class="empty">Pick a card from the drawer.</div>');
+  pane.innerHTML = `<div class="empty">Loading ${esc(p)}…</div>`;
+  let text;
+  try { ({ text } = await api(`/api/file?path=${encodeURIComponent(p)}`)); }
+  catch (e) { return (pane.innerHTML = `<div class="empty">Could not load ${esc(p)}: ${esc(e.message)}</div>`); }
+  if (state.file !== p) return;
+  const name = p.split('/').pop();
+  pane.innerHTML = `<div class="pills"><button id="dl" title="Save the raw file">download ${esc(name)}</button>${p.endsWith('.md') ? '<button id="cpmd" class="copymd">Copy markdown</button>' : ''}</div>`
+    + (p.endsWith('.mmd') ? '<div id="fbody"></div>' : `<div class="raw">${esc(p)}</div><div class="md">${marked.parse(text)}</div>`);
+  $('#dl').onclick = () => save(name, text, 'text/plain'); // raw text as-is
+  if ($('#cpmd')) $('#cpmd').onclick = () => copyMd($('#cpmd'), text);
+  if (!p.endsWith('.mmd')) return;
+  await renderDiagram($('#fbody'), text, () => state.file === p);
+  const svg = state.file === p && $('#fbody svg');
+  if (!svg || $('#dl-svg')) return; // failed render, or a concurrent load already added the button
+  const svgName = name.replace(/\.mmd$/, '.svg');
+  $('#fpane .pills').insertAdjacentHTML('beforeend', `<button id="dl-svg" title="Save the rendered diagram">download ${esc(svgName)}</button>`);
+  $('#dl-svg').onclick = () => save(svgName, new XMLSerializer().serializeToString(svg), 'image/svg+xml');
+}
+
+function save(name, text, type) {
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([text], { type })), download: name });
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+const TITLES = { cards: 'Ca<em>rds</em>', pipeline: 'Pipe<em>line</em>', stats: 'St<em>ats</em>', board: 'Bo<em>ard</em>', files: 'Fi<em>les</em>' };
+function showView(view, filePath) {
+  state.view = view;
+  for (const b of document.querySelectorAll('#views button')) b.classList.toggle('on', b.dataset.view === view);
+  $('#mast h1').innerHTML = TITLES[view];
+  $('#list').hidden = $('#right').hidden = view !== 'cards';
+  for (const v of ['pipeline', 'stats', 'board', 'files']) $(`#${v}`).hidden = view !== v;
+  if (view === 'pipeline') loadPipeline();
+  if (view === 'stats') loadStats();
+  if (view === 'board') loadBoard();
+  if (view === 'files') loadFiles(filePath || '');
+}
+// every view change goes through the hash so #board, #files/<path> and the card tabs all deep-link the same way
+function route() {
+  const h = location.hash.slice(1);
+  if (h.startsWith('files')) return showView('files', h.slice(6));
+  if (h === 'pipeline' || h === 'stats' || h === 'board') return showView(h);
+  const tab = TABS.find(([k]) => k === h);
+  if (tab) state.tab = tab[0];
+  showView('cards');
+  if (current()) showTab(state.tab); // the card may have changed while another view was up
+}
+for (const b of document.querySelectorAll('#views button')) b.onclick = () => { location.hash = b.dataset.view === 'cards' ? state.tab : b.dataset.view; };
+addEventListener('hashchange', route);
+route();
+
+function showListening(n) {
+  const el = $('#listen');
+  el.hidden = false;
+  el.classList.toggle('on', n > 0);
+  el.textContent = n > 0 ? 'Dispatcher listening' : 'Not listening — run /cards';
+}
+const events = new EventSource('/api/events');
+// onopen fires on first load and on every reconnect (e.g. server restart), so the pill never goes stale
+events.onopen = () => api('/api/listening').then((d) => showListening(d.listeners)).catch(() => showListening(0));
+const CARD_EVENTS = ['cards', 'new', 'answer', 'close', 'reopen', 'park', 'unpark', 'drop'];
+events.onmessage = (e) => {
+  const { type, listeners } = JSON.parse(e.data);
+  if (type === 'listening') return showListening(listeners);
+  if (type === 'dispatch') { refreshCards().catch(() => {}); if (state.view === 'pipeline') loadPipeline(); if (state.view === 'stats') loadStats(); }
+  else if (CARD_EVENTS.includes(type)) { refreshCards().catch(() => {}); if (state.view === 'board') loadBoard(); if (state.view === 'pipeline') loadPipeline(); }
+};
+</script>
+</body>
+</html>

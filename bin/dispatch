@@ -1,0 +1,20 @@
+#!/usr/bin/env node
+// Dispatch rows by hand. bin/dispatch done <agent> [--task <folder>]
+// done: append the row that closes <agent>'s newest open start in ui/dispatch.jsonl (for workers the
+// SubagentStop hook never saw stop); with --task, the newest open start on that task folder.
+// No open start = nothing appended; exit 0 either way. Anything else on the line is usage (exit 2),
+// so a mistyped flag never closes a run on the wrong task.
+const fs = require('node:fs');
+const path = require('node:path');
+const { readDispatches, doneLineFor } = require('../ui/roster-lib');
+const [cmd, agent, ...rest] = process.argv.slice(2);
+const taskArg = rest[0] === '--task' ? rest[1] : undefined;
+const task = taskArg && !taskArg.startsWith('tasks/') ? `tasks/${taskArg}` : taskArg;
+const root = process.env.WORK_BRAIN_ROOT || path.resolve(__dirname, '..');
+const wellFormed = rest.length === 0 || (rest.length === 2 && rest[0] === '--task' && taskArg);
+if (cmd !== 'done' || !agent || !wellFormed) {
+  console.error('usage: bin/dispatch done <agent> [--task <folder>]');
+  process.exit(2);
+}
+const row = doneLineFor(readDispatches(root), agent, new Date(), task);
+if (row) fs.appendFileSync(path.join(root, 'ui', 'dispatch.jsonl'), JSON.stringify(row) + '\n');

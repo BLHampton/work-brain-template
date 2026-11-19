@@ -1,0 +1,13 @@
+{
+  "_": "stage: brief|plan|tdd|review|verify|packet|scribe|done|blocked · what waits on the manager lives in card.json, not here · the dispatcher rewrites this file at every stage change",
+  "card": "TICKET-123",
+  "folder": "tasks/2026-10-23-slug",
+  "lane": "standard",
+  "stage": "brief",
+  "repo": "/path/to/<repo>",
+  "attempts": 0,
+  "review_round": 0,
+  "look_flags": [],
+  "blocked_reason": null,
+  "updated": "2026-10-23T14:30:00-05:00"
+}

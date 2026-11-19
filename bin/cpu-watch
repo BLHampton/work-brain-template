@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Log CPU spikes with the processes behind them. Samples /proc/stat every INTERVAL s;
+# while busy% >= THRESHOLD it logs the top processes (with their working dir, which names the worktree).
+# Usage: bin/cpu-watch [threshold=85] [interval=5]   (bin/morning starts it; one instance only)
+# Log: notes/cpu-spikes.log (git-ignored). Sees the WSL VM only, not Windows-side processes.
+BRAIN="$(cd "$(dirname "$0")/.." && pwd)"
+LOG="$BRAIN/notes/cpu-spikes.log"; mkdir -p "$BRAIN/notes"
+THRESHOLD=${1:-85}; INTERVAL=${2:-5}
+LOCK="${XDG_RUNTIME_DIR:-/tmp}/work-brain-cpu-watch.lock"
+exec 9>"$LOCK"; flock -n 9 || exit 0
+
+read_cpu() { read -r _ u n s i w q sq st _ < /proc/stat; echo "$((u+n+s+q+sq+st)) $((i+w))"; }
+read -r b0 i0 <<<"$(read_cpu)"; hot_since=""; last_ps=0
+while sleep "$INTERVAL"; do
+  read -r b1 i1 <<<"$(read_cpu)"
+  db=$((b1-b0)); di=$((i1-i0)); b0=$b1; i0=$i1
+  pct=$(( db+di > 0 ? 100*db/(db+di) : 0 ))
+  now=$(date +%s); ts=$(date '+%F %T')
+  if (( pct >= THRESHOLD )); then
+    if [[ -z $hot_since ]]; then hot_since=$now; echo "== $ts SPIKE START cpu=${pct}% load=$(cut -d' ' -f1-3 /proc/loadavg)" >> "$LOG"; fi
+    # full process list on the first hot sample, then every 30 s while it stays hot
+    if (( now - last_ps >= 30 )); then
+      last_ps=$now
+      echo "-- $ts cpu=${pct}% load=$(cut -d' ' -f1 /proc/loadavg)" >> "$LOG"
+      # top's second frame = CPU over the last second (ps %cpu is a lifetime average)
+      top -bcn2 -d1 -w512 -o %CPU | awk '/^top -/{n++} n==2 && $1 ~ /^[0-9]+$/' | head -8 |
+        while read -r pid _ _ _ _ _ _ _ pc _ et args; do
+          printf '   %5s%% %9s %-55s %s\n' "$pc" "$et" "$(readlink "/proc/$pid/cwd" 2>/dev/null)" "${args:0:160}"
+        done >> "$LOG"
+    fi
+  elif [[ -n $hot_since ]]; then
+    echo "== $ts SPIKE END after $((now-hot_since)) s" >> "$LOG"; hot_since=""; last_ps=0
+  fi
+done

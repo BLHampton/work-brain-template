@@ -1,0 +1,20 @@
+ui/server.log
+ui/dispatch.jsonl
+# work in flight stays local: only the brain's structure is committed (CLAUDE.md "Hard rules")
+tasks/*
+!tasks/.gitkeep
+retros/*
+!retros/.gitkeep
+notes/
+inbox.md
+parked.md
+inbox-answers.md
+inbox-threads/
+answers.md
+pr-watch.json
+task-log.md
+suggestion-box.md
+repos/*
+!repos/work-brain.json
+local.json
+misses.md

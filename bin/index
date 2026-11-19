@@ -1,0 +1,5 @@
+#!/usr/bin/env node
+// The thin index: node bin/index  (or: bin/index). Reads tasks/*/status.json + card.json, prints Needs you, Working, Waiting on someone else, Done not closed, Parked, Pull requests and Faults.
+const path = require('node:path');
+const { index } = require('../ui/index-lib');
+process.stdout.write(index(process.env.WORK_BRAIN_ROOT || path.resolve(__dirname, '..'), (m) => console.error(`index: ${m}`)));

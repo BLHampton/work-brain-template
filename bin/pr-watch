@@ -1,0 +1,275 @@
+#!/usr/bin/env node
+// Watch GitHub PRs we own or reviewed; a reply, review, new commits, merge or close updates the task's card.
+// Usage: bin/pr-watch add <github PR url> --task tasks/<folder> --as reviewed|ours   (first snapshot, no card)
+//        bin/pr-watch done <url>    (clear a queued re-review once it has started)
+//        bin/pr-watch remove <url>  (stop watching; used when the PR's card is stamped Done)
+//        bin/pr-watch once          (one poll, then exit)
+//        bin/pr-watch               (poll every PR_WATCH_INTERVAL s, 30 to 86400, default 300; bin/morning starts it; one instance only)
+// Each change rewrites `where` in the task's card.json (created when missing, never reopened) and adds a timeline line to the task folder's pr.md.
+// State: pr-watch.json (git-ignored). Events (REREVIEW <folder> <url> <sha>) on stdout, errors on stderr.
+// The logic lives in ui/pr-watch-lib.js and ui/pr-card-lib.js; this file only owns `gh` and the files.
+const fs = require('node:fs');
+const path = require('node:path');
+const { execFileSync, spawnSync } = require('node:child_process');
+const lib = require('../ui/pr-watch-lib');
+const card = require('../ui/pr-card-lib');
+
+const ROOT = process.env.WORK_BRAIN_ROOT || path.resolve(__dirname, '..');
+const FILE = path.join(ROOT, 'pr-watch.json');
+const TEMPLATE = path.resolve(__dirname, '..', 'templates', 'pr.md');
+const LOCK = path.join(process.env.XDG_RUNTIME_DIR || '/tmp', 'work-brain-pr-watch.lock');
+const INTERVAL_DEFAULT = 300;
+const INTERVAL_MIN = 30;
+const INTERVAL_MAX = 86400;
+// Anything outside the range (negative, huge, not a number) would make setInterval spin: use the default.
+const asked = Number(process.env.PR_WATCH_INTERVAL);
+const INTERVAL = asked >= INTERVAL_MIN && asked <= INTERVAL_MAX ? asked : INTERVAL_DEFAULT;
+const GH_TIMEOUT_MS = 60000;
+const USAGE = 'usage: bin/pr-watch add <github PR url> --task tasks/<folder> --as reviewed|ours | done <url> | remove <url> | once';
+
+function fail(message) {
+  console.error(`pr-watch: ${message}`);
+  process.exit(1);
+}
+
+const readText = () => (fs.existsSync(FILE) ? fs.readFileSync(FILE, 'utf8') : '');
+
+// Temp file + rename: a crash mid-write cannot truncate the watch list.
+function writeList(list) {
+  const tmp = `${FILE}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, `${JSON.stringify(list, null, 2)}\n`);
+  fs.renameSync(tmp, FILE);
+}
+
+const readOr = (file, fallback) => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : fallback);
+
+// The timeout turns a `gh` that hangs on a dead connection into one error line instead of a stuck watcher.
+const gh = (args) =>
+  execFileSync('gh', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: GH_TIMEOUT_MS });
+
+// The PR's current state in the lib's snapshot shape; throws when `gh` fails.
+const titles = new Map(); // url -> PR title, for a pr.md that has to be created
+
+function fetchSnapshot({ url }) {
+  const pr = JSON.parse(gh(['pr', 'view', url, '--json', 'state,headRefOid,comments,reviews,title']));
+  titles.set(url, pr.title || '');
+  const login = (item) => (item.author && item.author.login) || '';
+  return {
+    state: pr.state,
+    headRefOid: pr.headRefOid,
+    comments: (pr.comments || []).map((c) => ({ id: c.id, author: login(c) })),
+    reviews: (pr.reviews || []).map((r) => ({ id: r.id, author: login(r), state: r.state })),
+  };
+}
+
+function today() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// Local `YYYY-MM-DD HH:MM`, the stamp on a pr.md timeline line.
+function now() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${today()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// A first pr.md from the template: title (GitHub's text, without `<`, `>`, `[`, `]`) and status line filled, the timeline kept, the other sections left empty.
+function newPrFile({ url, repo, number, stands }) {
+  let section = null;
+  return fs
+    .readFileSync(TEMPLATE, 'utf8')
+    .split('\n')
+    .map((line) => {
+      if (line.startsWith('# ')) return `# ${repo}#${number} — ${(titles.get(url) || '').replace(/[<>[\]]/g, '').replace(/\s+/g, ' ').trim()}`;
+      if (line.startsWith('Stands: ')) return `Stands: ${stands} | Round: 1 | Url: ${url}`;
+      return line;
+    })
+    .filter((line) => {
+      if (line.startsWith('## ')) section = line.slice(3).trim();
+      return section === null || section === 'Timeline' || line.startsWith('## ') || line.trim() === '';
+    })
+    .join('\n');
+}
+
+const flat = (err) => String((err && err.message) || err).replace(/\s*[\r\n]+\s*/g, ' ');
+
+// The pr.md text after one update: created when missing, moved to its new state, one timeline line per change.
+function nextPrFile(had, update, at) {
+  const stood = card.setStands(had ?? newPrFile(update), update.stands);
+  return update.timeline.reduce((text, what) => card.addTimeline(text, at, what), stood);
+}
+
+// One update as it lands: `{ update, file, text }`. A comment never takes a card out of a state that waits on the manager
+// or on a review (card.standsAfter); the headline then leads with the kept state and still carries the news.
+// A pr.md that cannot be read, parsed or updated gives `text: null` and an `error`: the card still gets the plain
+// headline and the file is left as it is. A missing task folder gets the card only.
+function landing(update, at) {
+  const file = path.join(ROOT, update.task, 'pr.md');
+  if (!fs.existsSync(path.join(ROOT, update.task))) return { update, file, text: null };
+  try {
+    const had = readOr(file, null);
+    const was = had == null ? null : card.parsePr(had).stands;
+    if (had != null && !was) throw new Error('No "Stands: … | Round: … | Url: …" line');
+    if (was && !card.STANDS.includes(was)) throw new Error(`Unknown state "${was}"`);
+    const stands = card.standsAfter(was, update.stands);
+    const landed = stands === update.stands ? update : { ...update, stands, headline: update.headline.replace(update.stands, stands) };
+    return { update: landed, file, text: nextPrFile(had, landed, at) };
+  } catch (err) {
+    return { update, file, text: null, error: flat(err) };
+  }
+}
+
+let me; // the signed-in gh login, fetched once per run
+
+// A hand-edited entry the lib cannot read: no url, no snapshot, or a snapshot without its arrays.
+const wellFormed = (entry) =>
+  Boolean(entry) &&
+  typeof entry.url === 'string' &&
+  Boolean(entry.snapshot) &&
+  Array.isArray(entry.snapshot.comments) &&
+  Array.isArray(entry.snapshot.reviews);
+
+function pollOnce() {
+  const text = readText();
+  let list;
+  try {
+    list = text ? JSON.parse(text) : [];
+    if (!Array.isArray(list)) throw new Error('not a JSON array');
+  } catch (err) {
+    return console.error(`pr-watch: pr-watch.json: ${err.message}`);
+  }
+  if (list.length === 0) return;
+  try {
+    me = me || gh(['api', 'user', '--jq', '.login']).trim();
+  } catch (err) {
+    return console.error(`pr-watch: gh api user: ${String(err.message).replace(/\s*[\r\n]+\s*/g, ' ')}`);
+  }
+  // One entry at a time, so a malformed one is skipped and stays in the file where it was.
+  const errors = [];
+  const polled = list.map((entry, index) => {
+    if (!wellFormed(entry)) {
+      errors.push(`pr-watch: pr-watch.json: skipped malformed entry ${index + 1} (${(entry && entry.url) || 'no url'})`);
+      return { list: [entry], updates: [], events: [] };
+    }
+    const one = lib.poll([entry], fetchSnapshot, me, today());
+    errors.push(...one.errors);
+    return one;
+  });
+  errors.forEach((line) => console.error(line));
+  const next = polled.flatMap((one) => one.list);
+  if (JSON.stringify(next) === JSON.stringify(list)) return;
+  // `add` or `done` ran while we were fetching: drop this pass, the next poll sees the same changes.
+  if (readText() !== text) return;
+  const at = now();
+  const landed = polled.map((one) => one.updates.map((update) => landing(update, at)));
+  // The card's headline first: a PR whose card.json cannot be written keeps its old snapshot and the next poll finds
+  // the change again; the other PRs are saved.
+  const folder = (update) => update.task.replace(/^tasks\//, '');
+  const carded = landed.map((plans) =>
+    plans.map((plan) => {
+      const { update } = plan;
+      // No task folder, no card to write to; retrying would never help.
+      if (!fs.existsSync(path.join(ROOT, update.task))) return true;
+      try {
+        const title = titles.get(update.url);
+        card.setWhere(ROOT, folder(update), update.headline, `${update.repo}#${update.number}${title ? ` · ${title}` : ''}`);
+        return true;
+      } catch (err) {
+        console.error(`pr-watch: ${update.task}/card.json: not saved, will retry: ${flat(err)}`);
+        return false;
+      }
+    }),
+  );
+  const ok = (index) => carded[index].every(Boolean);
+  // Then each pr.md on its own: a broken one is named and left alone, the others are written.
+  landed.forEach((plans, index) => {
+    plans.forEach((plan, n) => {
+      if (!carded[index][n]) return;
+      try {
+        if (plan.error) throw new Error(plan.error);
+        if (plan.text != null) fs.writeFileSync(plan.file, plan.text);
+      } catch (err) {
+        console.error(`pr-watch: ${path.relative(ROOT, plan.file)}: left as it is, card updated: ${flat(err)}`);
+      }
+    });
+  });
+  const saved = polled.map((one, index) => (ok(index) ? one.list : list[index])).flat();
+  try {
+    if (JSON.stringify(saved) !== JSON.stringify(list)) writeList(saved);
+  } catch (err) {
+    return console.error(`pr-watch: pr-watch.json: not saved, will retry: ${flat(err)}`);
+  }
+  polled.forEach((one, index) => {
+    if (ok(index)) one.events.forEach((line) => console.log(line));
+  });
+}
+
+function readListOrFail() {
+  try {
+    const list = JSON.parse(readText() || '[]');
+    if (!Array.isArray(list)) throw new Error('not a JSON array');
+    return list;
+  } catch (err) {
+    return fail(`pr-watch.json: ${err.message}`);
+  }
+}
+
+// One spelling per PR: `…/pull/12/files`, a trailing slash or a query all name `…/pull/12`.
+function canonicalUrl(url) {
+  const pr = lib.parsePrUrl(url);
+  return pr ? `https://github.com/${pr.owner}/${pr.repo}/pull/${pr.number}` : url;
+}
+
+function addCommand(args) {
+  const flag = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
+  const url = canonicalUrl(args[0]);
+  const task = flag('--task');
+  const as = flag('--as');
+  if (!lib.parsePrUrl(url)) fail(`not a GitHub PR url (TFS is not watched): ${url || '(none)'}`);
+  if (!/^tasks\/[^/\s]+$/.test(task || '')) fail(`--task tasks/<folder> is required. ${USAGE}`);
+  if (as !== 'reviewed' && as !== 'ours') fail(`--as reviewed|ours is required. ${USAGE}`);
+  let snapshot;
+  try {
+    snapshot = fetchSnapshot({ url });
+  } catch (err) {
+    fail(`${url}: ${String(err.message).replace(/\s*[\r\n]+\s*/g, ' ')}`);
+  }
+  // Read after the slow `gh` call: a poll that wrote meanwhile is kept, not undone.
+  const list = readListOrFail();
+  if (list.some((entry) => entry.url === url)) fail(`already watched: ${url}`);
+  // The card and pr.md are keyed by task folder: a second PR there would write over the first one's card.
+  const taken = list.find((entry) => entry && entry.task === task);
+  if (taken) fail(`${task} already has a watched PR (${taken.url}): one PR per task folder`);
+  writeList(lib.add(list, { url, task, as }, snapshot).list);
+}
+
+const [command, ...rest] = process.argv.slice(2);
+if (command === 'add') {
+  addCommand(rest);
+} else if (command === 'done') {
+  if (!rest[0]) fail(USAGE);
+  const list = readListOrFail();
+  const next = lib.done(list, canonicalUrl(rest[0]));
+  if (JSON.stringify(next) !== JSON.stringify(list)) writeList(next);
+} else if (command === 'remove') {
+  if (!rest[0]) fail(USAGE);
+  const list = readListOrFail();
+  const next = lib.remove(list, canonicalUrl(rest[0]));
+  if (next.length !== list.length) writeList(next);
+} else if (command === 'once') {
+  pollOnce();
+} else if (command !== undefined) {
+  fail(USAGE);
+} else if (!process.env.PR_WATCH_LOCKED) {
+  // One instance only: re-run under flock; a second copy leaves quietly.
+  const run = spawnSync('flock', ['-n', '-E', '0', LOCK, process.execPath, __filename], {
+    stdio: 'inherit',
+    env: { ...process.env, PR_WATCH_LOCKED: '1' },
+  });
+  process.exit(run.status === null ? 1 : run.status);
+} else {
+  pollOnce();
+  setInterval(pollOnce, INTERVAL * 1000);
+}

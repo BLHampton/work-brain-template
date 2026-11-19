@@ -1,0 +1,18 @@
+#!/usr/bin/env node
+// Gate lock. bin/gates lock|check tasks/<folder>
+// gates.txt lists the card's test files, one per line, relative to the repo in status.json ("repo").
+// lock: write sha256 of each into gates.lock. check: exit 1 naming any file whose hash changed or that vanished.
+const { lock, check } = require('../ui/gates-lib');
+const [cmd, folder] = process.argv.slice(2);
+const root = process.env.WORK_BRAIN_ROOT || require('node:path').resolve(__dirname, '..');
+if (!['lock', 'check'].includes(cmd) || !folder) {
+  console.error('usage: bin/gates lock|check tasks/<folder>');
+  process.exit(2);
+}
+if (cmd === 'lock') {
+  console.log(`locked ${lock(root, folder)} gate file(s)`);
+} else {
+  const changed = check(root, folder);
+  if (changed.length) { console.error(`gate changed: ${changed.join(', ')}`); process.exit(1); }
+  console.log('gates intact');
+}

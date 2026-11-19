@@ -1,0 +1,116 @@
+#!/usr/bin/env node
+// The dispatcher's hand on a task's card.json: where it stands, what it needs from the manager.
+// Usage: bin/card new <tasks/folder> --title <text>
+//        bin/card where <tasks/folder> <where> [<next>]   (one argument leaves next alone)
+//        bin/card ask <tasks/folder> --q <text> --suggested <text> --why <text> [--kind <kind>] [--file <name>]
+//        bin/card ask <tasks/folder> --from question.md   (q, the Default option's label, Blocked meanwhile)
+//        bin/card assume <tasks/folder> <text>
+//        bin/card later <tasks/folder> <item>
+//        bin/card waiting <tasks/folder> [<who>]   (no <who> clears it)
+//        bin/card result <tasks/folder> <file>   (a path inside the task folder that exists, e.g. research/synthesis.md)
+//        bin/card withdraw <tasks/folder> <id>
+// The logic lives in ui/cards-lib.js; this file only parses arguments.
+const fs = require('node:fs');
+const path = require('node:path');
+const lib = require('../ui/cards-lib');
+const { parseQuestion } = require('../ui/card-lib');
+
+const ROOT = process.env.WORK_BRAIN_ROOT || path.resolve(__dirname, '..');
+const USAGE = 'usage: bin/card new <tasks/folder> --title <text> | where <tasks/folder> <where> [<next>] | ask <tasks/folder> (--q <text> --suggested <text> --why <text> [--kind <kind>] [--file <name>] | --from question.md) | assume <tasks/folder> <text> | later <tasks/folder> <item> | waiting <tasks/folder> [<who>] | result <tasks/folder> <file> | withdraw <tasks/folder> <id>';
+
+function fail(message) {
+  console.error(`card: ${message}`);
+  process.exit(1);
+}
+
+// Local YYYY-MM-DD.
+function today() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// { flags: { name: value }, args: [positional] } from `--name value` pairs and bare words.
+function parse(argv) {
+  const flags = {};
+  const args = [];
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i].startsWith('--')) {
+      if (i + 1 >= argv.length) fail(`${argv[i]} needs a value`);
+      if (!FLAGS.includes(argv[i].slice(2))) fail(`unknown flag ${argv[i]}`);
+      flags[argv[i].slice(2)] = argv[i + 1];
+      i += 1;
+    } else args.push(argv[i]);
+  }
+  return { flags, args };
+}
+
+const FLAGS = ['title', 'q', 'suggested', 'why', 'kind', 'file', 'from'];
+const need = (value, name) => (value === undefined || value === '' ? fail(`missing ${name}`) : value);
+
+// { q, suggested, why } from a task's question.md.
+function fromQuestionFile(dir) {
+  const target = path.join(dir, 'question.md');
+  if (!fs.existsSync(target)) fail('no question.md in the task folder');
+  const parsed = parseQuestion(fs.readFileSync(target, 'utf8'));
+  const def = (parsed.options || []).find((o) => o.letter === parsed.defaultLetter);
+  if (!def) fail('question.md has no Default option');
+  return { q: need(parsed.question, 'Question in question.md'), suggested: def.label, why: need(parsed.blocked, 'Blocked meanwhile in question.md') };
+}
+
+const [command, task, ...rest] = process.argv.slice(2);
+const COMMANDS = ['new', 'where', 'ask', 'assume', 'later', 'waiting', 'result', 'withdraw'];
+if (!COMMANDS.includes(command) || !/^tasks\/\d{4}-\d{2}-\d{2}-[a-z0-9-]+$/.test(task || '')) fail(USAGE);
+// A lead (herdr sets CARD=tasks/<folder> in its pane) may only ask or assume, and only on its own card.
+if (process.env.CARD) {
+  if (task !== process.env.CARD) fail('a lead may only write its own card');
+  if (!['ask', 'assume'].includes(command)) fail('a lead may only ask or assume');
+}
+const folder = task.replace(/^tasks\//, '');
+const dir = path.join(ROOT, task);
+const { flags, args } = parse(rest);
+
+try {
+  if (command === 'new') {
+    if (!fs.existsSync(dir)) fail('no such task folder');
+    if (fs.existsSync(path.join(dir, 'card.json'))) fail('card.json already exists');
+    const created = lib.newCard({ title: need(flags.title, '--title') });
+    const problems = lib.validate(created);
+    if (problems.length) fail(problems.join('; '));
+    lib.writeCard(ROOT, folder, created);
+  } else if (command === 'where') {
+    const where = need(args[0], '<where>');
+    lib.change(ROOT, folder, (c) => ({ ...c, where, next: args[1] === undefined ? c.next : args[1] }));
+  } else if (command === 'ask') {
+    const fields = flags.from === 'question.md'
+      ? fromQuestionFile(dir)
+      : flags.from ? fail(USAGE)
+        : { q: need(flags.q, '--q'), suggested: need(flags.suggested, '--suggested'), why: need(flags.why, '--why'), file: flags.file };
+    const { kind, file } = { kind: flags.kind, file: fields.file };
+    if (file != null && !lib.safeRelFile(file)) fail('--file must be a path inside the task folder');
+    lib.change(ROOT, folder, (c) => lib.ask(c, { ...fields, ...(kind && { kind }), file: file ?? null }, today()));
+  } else if (command === 'assume') {
+    const text = need(args[0], '<text>');
+    lib.change(ROOT, folder, (c) => lib.assume(c, text, today()));
+    // A lead's assume is a decision the manager made in chat: tell the UI so the stamp listener wakes the dispatcher.
+    // The line is on the card either way; with the UI down the dispatcher reads it before its next step.
+    if (process.env.CARD) {
+      fetch(`${process.env.CARDS_URL || 'http://127.0.0.1:4747'}/api/card/decided`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ task, text }), signal: AbortSignal.timeout(2000) }).catch(() => {});
+    }
+  } else if (command === 'later') {
+    const item = need(args[0], '<item>');
+    lib.change(ROOT, folder, (c) => ({ ...c, later: [...c.later, item] }));
+  } else if (command === 'waiting') {
+    lib.change(ROOT, folder, (c) => ({ ...c, waiting_on: args[0] ?? null }));
+  } else if (command === 'result') {
+    const name = need(args[0], '<file>');
+    if (!lib.safeRelFile(name)) fail('result must be a path inside the task folder');
+    if (!fs.existsSync(path.join(dir, name))) fail(`no ${name} in the task folder`);
+    lib.change(ROOT, folder, (c) => ({ ...c, result: name }));
+  } else {
+    const id = need(args[0], '<id>');
+    lib.change(ROOT, folder, (c) => lib.withdraw(c, id, today()));
+  }
+} catch (err) {
+  fail(String(err.message).replace(/\s*[\r\n]+\s*/g, ' '));
+}

@@ -1,0 +1,77 @@
+<!doctype html>
+<!--
+  mockups.html · worker · tasks/<folder>/research/mockups.html · UI cards only, before the PLAN GATE (standard) or the implementer (quick)
+  How to use: copy this file; fill every {{placeholder}} (curly braces, never angle brackets: <name> would parse as an element); paste the target repo's real tokens into :root (literal colour, spacing, radius and font values from its
+  stylesheet or design-tokens file, named in the comment); rebuild the component from its real template in the same markup order
+  (feature-anatomy step 3); 2–4 variant panels, one marked recommended; example data only — placeholders, story/fixture values or
+  plainly fictional names, never a real person, customer or response value. Keep the "recreation · example data" note. Self-contained:
+  no external scripts, fonts or images, so /api/task-file can serve it as-is. Name the path on the gate card; the UI shows an Open mockup link.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{card}} · {{component}}: pick a variant</title>
+<style>
+/* Tokens copied from {{repo}}/{{path/to/tokens.scss}} @ {{short sha}}. Replace every value below; add the ones the component uses. */
+:root {
+  --brand: #2b4e65; --accent: #167bc8;
+  --ink: #2f3337; --muted: #676767;
+  --line: #d0d5da; --ground: #eef1f4; --surface: #fff;
+  --radius: 4px; --space: 8px;
+  --font: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--ground); color: var(--ink); }
+body { font-family: var(--font); font-size: 14px; line-height: 1.45; padding: 20px 16px 40px; }
+
+/* ---------- page header ---------- */
+.intro { max-width: 1600px; margin: 0 auto 18px; }
+.intro h1 { margin: 0 0 4px; font-size: 20px; font-weight: 700; color: var(--brand); }
+.intro p { margin: 0; color: var(--muted); max-width: 90ch; }
+.intro code { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; color: var(--ink); }
+
+/* ---------- variant grid (2–4 panels) ---------- */
+.options { max-width: 1600px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 24px; align-items: start; }
+.option { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.option h2 { margin: 0; font-size: 16px; font-weight: 700; color: var(--brand); display: flex; align-items: center; gap: 10px; }
+.option h2 .letter { width: 28px; height: 28px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center; font-size: 15px; flex: none; }
+.option h2 .rec { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #fff; background: var(--accent); border-radius: 10px; padding: 2px 8px; }
+.option .why { margin: 0; color: var(--muted); font-size: 13px; }
+
+/* ---------- the recreated component; replace .mock's children with the real markup ---------- */
+.stage { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: calc(var(--space) * 2); }
+.mock { border: 1px dashed var(--line); border-radius: var(--radius); padding: calc(var(--space) * 2); min-height: 120px; }
+.note { margin: 8px 0 0; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+</style>
+</head>
+<body>
+<header class="intro">
+  <h1>{{card}} · {{component}}: pick a variant</h1>
+  <p>{{one line: what is being decided and what stays the same}}. Source: <code>{{repo}}/{{template file}}</code>, <code>{{stylesheet}}</code>.</p>
+</header>
+
+<main class="options">
+  <section class="option">
+    <h2><span class="letter">A</span> {{variant label}}</h2>
+    <p class="why">{{one line: what this variant trades off}}</p>
+    <div class="stage">
+      <div class="mock"><!-- real markup order, example data --></div>
+      <p class="note">recreation · example data</p>
+    </div>
+  </section>
+
+  <section class="option">
+    <h2><span class="letter">B</span> {{variant label}} <span class="rec">recommended</span></h2>
+    <p class="why">{{one line: why this one}}</p>
+    <div class="stage">
+      <div class="mock"><!-- real markup order, example data --></div>
+      <p class="note">recreation · example data</p>
+    </div>
+  </section>
+
+  <!-- up to two more panels: copy a <section class="option"> block; letters C and D -->
+</main>
+</body>
+</html>

@@ -1,0 +1,61 @@
+#!/usr/bin/env node
+// The dispatcher's hand on a [PR] card: tasks/<folder>/pr.md and the card's headline in its card.json.
+// Usage: bin/pr-card review <tasks/folder> --json <file>   (a review round landed: { repo, number, title, url, verdict, todo, decisions, comment })
+//        bin/pr-card stands <tasks/folder> <state> [headline…]   (move where it stands; the headline defaults to the state)
+//        bin/pr-card note <tasks/folder> <text…>   (one timeline line)
+//        bin/pr-card post-command <tasks/folder> <approve|request-changes|comment>   (prints the `gh pr review` line for a Post stamp)
+//        bin/pr-card posted <tasks/folder> <link>   (the comment is posted: link recorded, "waiting on author")
+// The logic lives in ui/pr-card-lib.js; this file only owns the files.
+const fs = require('node:fs');
+const path = require('node:path');
+const card = require('../ui/pr-card-lib');
+
+const ROOT = process.env.WORK_BRAIN_ROOT || path.resolve(__dirname, '..');
+const TEMPLATE = path.resolve(__dirname, '..', 'templates', 'pr.md');
+const USAGE = 'usage: bin/pr-card review <tasks/folder> --json <file> | stands <tasks/folder> <state> [headline…] | note <tasks/folder> <text…> | post-command <tasks/folder> <approve|request-changes|comment> | posted <tasks/folder> <link>';
+
+function fail(message) {
+  console.error(`pr-card: ${message}`);
+  process.exit(1);
+}
+
+const [command, task, ...rest] = process.argv.slice(2);
+if (!['review', 'stands', 'note', 'post-command', 'posted'].includes(command) || !/^tasks\/[^/\s]+$/.test(task || '') || rest.length === 0) fail(USAGE);
+const FILE = path.join(ROOT, task, 'pr.md');
+
+// Local `YYYY-MM-DD HH:MM`, the stamp on a pr.md timeline line.
+function now() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+const readPr = () => (fs.existsSync(FILE) ? fs.readFileSync(FILE, 'utf8') : fail(`no pr.md in ${task}`));
+
+// pr.md first, then the headline in card.json (created, titled `<repo>#<number> · <title>`, when the task has none).
+function save(prText, headline) {
+  const { repo, number, title } = card.parsePr(prText);
+  fs.writeFileSync(FILE, prText);
+  if (headline != null) card.setWhere(ROOT, task.replace(/^tasks\//, ''), headline, `${repo}#${number}${title ? ` · ${title}` : ''}`);
+}
+
+try {
+  if (command === 'review') {
+    if (rest[0] !== '--json' || !rest[1]) fail(USAGE);
+    const review = JSON.parse(fs.readFileSync(rest[1], 'utf8'));
+    const before = fs.existsSync(FILE) ? fs.readFileSync(FILE, 'utf8') : fs.readFileSync(TEMPLATE, 'utf8');
+    save(card.setReview(before, review, now()), `comment ready: ${review.verdict}`);
+  } else if (command === 'stands') {
+    save(card.setStands(readPr(), rest[0]), rest.slice(1).join(' ') || rest[0]);
+  } else if (command === 'note') {
+    save(card.addTimeline(readPr(), now(), rest.join(' ')), null);
+  } else if (command === 'post-command') {
+    const pr = card.parsePr(readPr());
+    const exists = Boolean(pr.comment.path) && fs.existsSync(path.resolve(ROOT, pr.comment.path));
+    console.log(card.postCommand(pr, rest[0], exists).display);
+  } else {
+    save(card.markPosted(readPr(), rest[0], now()), 'waiting on author');
+  }
+} catch (err) {
+  fail(String(err.message).replace(/\s*[\r\n]+\s*/g, ' '));
+}

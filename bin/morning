@@ -1,0 +1,37 @@
+#!/usr/bin/env sh
+# One command to start the day: cards UI up, browser open, chief chat in work-brain.
+# Usage: ~/source/repos/work-brain/bin/morning [extra claude args]
+set -e
+BRAIN="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$BRAIN"
+# fresh clone: the work files are git-ignored, so start them from their header templates
+# (a file with no template starts empty)
+for f in task-log suggestion-box misses; do
+  [ -f "$f.md" ] && continue
+  if [ -f "templates/$f.md" ]; then cp "templates/$f.md" "$f.md"; else : > "$f.md"; fi
+done
+
+if ! curl -sf -o /dev/null http://127.0.0.1:4747/api/cards; then
+  nohup node ui/server.js --port 4747 >> ui/server.log 2>&1 &
+  sleep 1
+fi
+
+# explorer.exe exits 1 even when it opens the page, so never let it stop the morning
+(xdg-open http://127.0.0.1:4747 || explorer.exe http://127.0.0.1:4747 || true) >/dev/null 2>&1
+
+# CPU spike log (notes/cpu-spikes.log); flock keeps it to one instance
+setsid nohup bin/cpu-watch >/dev/null 2>&1 < /dev/null &
+
+# PR watcher (the PR on each task's card, REREVIEW lines in notes/pr-watch.log); flock keeps it to one instance
+mkdir -p notes
+setsid nohup bin/pr-watch >> notes/pr-watch.log 2>> notes/pr-watch.err < /dev/null &
+
+# resource monitor in its own tab of the Herdr Dispatch workspace; silent when Herdr is not running
+bin/monitor --open || true
+
+# extra folders the dispatcher may read: "morningDirs": ["/path/to/repo", ...] in local.json (git-ignored)
+DIRS="$(node -e 'try { for (const d of require("./local.json").morningDirs || []) console.log(d); } catch {}')"
+# shortcut: a path with a space or newline is not supported, quote per line if one ever appears
+set -- $(printf '%s\n' "$DIRS" | sed '/^$/d; s/^/--add-dir /') "$@"
+exec claude "$@" \
+  "Morning. Run the session-start routine from CLAUDE.md: the opening line naming the cards that need you, then arm the stamp listener before anything else."

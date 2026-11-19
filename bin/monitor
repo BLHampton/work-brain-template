@@ -1,0 +1,86 @@
+#!/usr/bin/env sh
+# The resource monitor is btop. This script finds or installs it, runs it, or opens it in a Herdr tab.
+# Usage: bin/monitor            exec btop (installs it first when missing)
+#        bin/monitor --once     print `btop <version> at <path>` and exit 0 (installs when missing)
+#        bin/monitor --open     open btop in a `monitor` tab of the Herdr "Dispatch" workspace; silent no-op when Herdr is down
+# Install: latest static x86_64 musl build from github.com/aristocratos/btop releases into ~/.local/bin. No sudo, no apt.
+set -e
+BRAIN="$(cd "$(dirname "$0")/.." && pwd)"
+BIN_DIR="$HOME/.local/bin"
+RELEASE_API="https://api.github.com/repos/aristocratos/btop/releases/latest"
+
+btop_path() { command -v btop 2>/dev/null || { [ -x "$BIN_DIR/btop" ] && echo "$BIN_DIR/btop"; }; }
+
+btop_version() { "$1" --version 2>/dev/null | sed -n 's/^btop version: *//p' | head -1; }
+
+# Download into a fresh temp dir, extract there, copy only the btop binary into ~/.local/bin.
+install_btop() {
+  url="$(curl -fsSL "$RELEASE_API" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+for a in d["assets"]:
+    n = a["name"]
+    if n.startswith("btop-x86_64") and "linux-musl" in n and (n.endswith(".tbz") or n.endswith(".tar.gz")):
+        print(a["browser_download_url"]); break
+')"
+  [ -n "$url" ] || { echo "monitor: no x86_64 musl asset in the latest btop release" >&2; return 1; }
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' EXIT
+  echo "monitor: installing btop from $url" >&2
+  curl -fsSL -o "$tmp/btop.archive" "$url"
+  # python's tarfile reads .tbz and .tar.gz alike; only the binary leaves the temp dir
+  python3 -I - "$tmp/btop.archive" "$tmp" <<'PY'
+import sys, tarfile
+archive, dest = sys.argv[1], sys.argv[2]
+with tarfile.open(archive) as t:
+    m = next((m for m in t.getmembers() if m.isfile() and m.name.split("/")[-1] == "btop" and "/bin/" in "/" + m.name), None)
+    if m is None:
+        sys.exit("monitor: no btop binary in the archive")
+    m.name = "btop"
+    t.extract(m, dest, filter="data")
+PY
+  mkdir -p "$BIN_DIR"
+  cp "$tmp/btop" "$BIN_DIR/btop"
+  chmod +x "$BIN_DIR/btop"
+  echo "monitor: installed btop $(btop_version "$BIN_DIR/btop") at $BIN_DIR/btop" >&2
+}
+
+# Prints the path of a working btop, installing it when missing.
+ensure_btop() {
+  p="$(btop_path)" || true
+  [ -n "$p" ] || { install_btop >&2; p="$BIN_DIR/btop"; }
+  echo "$p"
+}
+
+# Open btop in its own tab of the Dispatch workspace; silent no-op when Herdr is not running or the tab exists.
+open_tab() {
+  tabs="$(herdr tab list 2>/dev/null)" || return 0
+  spaces="$(herdr workspace list 2>/dev/null)" || return 0
+  ws="$(printf '%s\n%s\n' "$tabs" "$spaces" | python3 -c '
+import json, sys
+try:
+    t, w = [json.loads(l) for l in sys.stdin.read().splitlines() if l.strip()][:2]
+    ws = next(s["workspace_id"] for s in w["result"]["workspaces"] if s["label"] == "Dispatch")
+except Exception:
+    sys.exit(0)
+if any(x["label"] == "monitor" and x["workspace_id"] == ws for x in t["result"]["tabs"]):
+    sys.exit(0)
+print(ws)
+')" || return 0
+  [ -n "$ws" ] || return 0
+  created="$(herdr tab create --workspace "$ws" --cwd "$BRAIN" --label monitor --no-focus 2>/dev/null)" || return 0
+  pane_id="$(printf '%s' "$created" | python3 -c '
+import re, sys
+m = re.search(r"\"pane_id\"\s*:\s*\"([^\"]+)\"", sys.stdin.read())
+print(m.group(1) if m else "")
+')"
+  [ -n "$pane_id" ] || return 0
+  herdr pane run "$pane_id" "$BRAIN/bin/monitor" >/dev/null 2>&1 || true
+}
+
+case "${1:-}" in
+  --once) p="$(ensure_btop)"; echo "btop $(btop_version "$p") at $p" ;;
+  --open) open_tab ;;
+  "") p="$(ensure_btop)"; exec "$p" ;;
+  *) echo "usage: bin/monitor [--once|--open]" >&2; exit 2 ;;
+esac
